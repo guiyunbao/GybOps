@@ -15,7 +15,7 @@
     $embeddingPresets = [
         ['key' => 'openai_embedding', 'label' => 'OpenAI Embedding', 'name' => 'OpenAI Embedding 3 Small', 'version' => '', 'model_id' => 'text-embedding-3-small', 'api_url' => 'https://api.openai.com', 'model_type' => 'embedding'],
         ['key' => 'gemini_embedding', 'label' => 'Gemini Embedding', 'name' => 'Gemini Embedding 2', 'version' => 'v1beta', 'model_id' => 'gemini-embedding-2', 'api_url' => 'https://generativelanguage.googleapis.com/v1beta', 'model_type' => 'embedding'],
-        ['key' => 'volcengine_ark_embedding', 'label' => 'Doubao Embedding', 'name' => 'Doubao Embedding', 'version' => 'v3', 'model_id' => 'doubao-embedding-text-240515', 'api_url' => 'https://ark.cn-beijing.volces.com/api/v3', 'model_type' => 'embedding'],
+        ['key' => 'volcengine_ark_embedding', 'label' => 'Doubao Embedding', 'name' => 'Doubao Embedding', 'version' => 'v3', 'model_id' => 'doubao-embedding-vision-251215', 'api_url' => 'https://ark.cn-beijing.volces.com/api/v3', 'model_type' => 'embedding'],
         ['key' => 'zhipu_embedding', 'label' => 'Zhipu Embedding', 'name' => '智谱 Embedding-3', 'version' => 'v4', 'model_id' => 'embedding-3', 'api_url' => 'https://open.bigmodel.cn/api/paas/v4', 'model_type' => 'embedding'],
     ];
 @endphp

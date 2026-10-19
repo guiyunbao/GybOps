@@ -337,11 +337,13 @@ final class AdminAiModelTestPreparationService
 
             return rtrim($baseUrl, '/').'/models/'.$modelName.($modelType === 'embedding' ? ':batchEmbedContents' : ':generateContent');
         }
-        if ($modelType === 'chat'
-            && OpenAiRuntimeProvider::resolveChatDriver($baseUrl, (string) $model->model_id) === 'openai') {
+        if ($modelType === 'embedding') {
+            return OpenAiRuntimeProvider::resolveEmbeddingEndpoint((string) $model->api_url, (string) $model->model_id);
+        }
+        if (OpenAiRuntimeProvider::resolveChatDriver($baseUrl, (string) $model->model_id) === 'openai') {
             return rtrim($baseUrl, '/').'/responses';
         }
 
-        return rtrim($baseUrl, '/').($modelType === 'embedding' ? '/embeddings' : '/chat/completions');
+        return rtrim($baseUrl, '/').'/chat/completions';
     }
 }

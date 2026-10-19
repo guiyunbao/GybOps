@@ -37,6 +37,7 @@ use App\Services\Outbound\OutboundRequestFailedException;
 use App\Services\Outbound\SafeOutboundHttpClient;
 use App\Support\AdminWeb;
 use App\Support\GeoFlow\ApiKeyCrypto;
+use App\Support\GeoFlow\OpenAiRuntimeProvider;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Response;
@@ -514,7 +515,15 @@ class AiModelController extends Controller
                 ? $request->withHeaders(['x-goog-api-key' => $apiKey])
                 : $request->withToken($apiKey);
 
-            $testPayload = $this->buildTestPayload($modelName, $modelType, $isGemini, $usesOpenAiResponses);
+            $usesVolcengineMultimodalEmbeddings = $modelType === 'embedding'
+                && OpenAiRuntimeProvider::usesVolcengineMultimodalEmbeddings($endpoint, $modelName);
+            $testPayload = $this->buildTestPayload(
+                $modelName,
+                $modelType,
+                $isGemini,
+                $usesOpenAiResponses,
+                $usesVolcengineMultimodalEmbeddings,
+            );
             $response = $this->safeHttp->post(
                 $request,
                 $endpoint,
@@ -554,7 +563,7 @@ class AiModelController extends Controller
                 );
             }
 
-            if (! $this->isValidTestResponse($json, $modelType, $isGemini, $usesOpenAiResponses)) {
+            if (! $this->isValidTestResponse($json, $modelType, $isGemini, $usesOpenAiResponses, $usesVolcengineMultimodalEmbeddings)) {
                 $usageSession->discarded('direct.p1', 'ai_provider_response_invalid', $json['usage'] ?? null);
                 if ($reservation instanceof AiUsageReservation) {
                     $this->recordModelTestAttempt($reservation);
@@ -960,7 +969,8 @@ class AiModelController extends Controller
         string $modelName,
         string $modelType,
         bool $isGemini = false,
-        bool $usesOpenAiResponses = false
+        bool $usesOpenAiResponses = false,
+        bool $usesVolcengineMultimodalEmbeddings = false,
     ): array {
         if ($isGemini) {
             if ($modelType === 'embedding') {
@@ -1004,6 +1014,19 @@ class AiModelController extends Controller
             ];
         }
 
+        if ($modelType === 'embedding' && $usesVolcengineMultimodalEmbeddings) {
+            return [
+                'model' => $modelName,
+                'encoding_format' => 'float',
+                'input' => [
+                    [
+                        'type' => 'text',
+                        'text' => 'GEOFlow embedding connection test',
+                    ],
+                ],
+            ];
+        }
+
         if ($modelType === 'embedding') {
             return [
                 'model' => $modelName,
@@ -1033,7 +1056,8 @@ class AiModelController extends Controller
         mixed $json,
         string $modelType,
         bool $isGemini = false,
-        bool $usesOpenAiResponses = false
+        bool $usesOpenAiResponses = false,
+        bool $usesVolcengineMultimodalEmbeddings = false,
     ): bool {
         if (! is_array($json)) {
             return false;
@@ -1057,6 +1081,10 @@ class AiModelController extends Controller
             }
 
             return false;
+        }
+
+        if ($modelType === 'embedding' && $usesVolcengineMultimodalEmbeddings) {
+            return isset($json['data']['embedding']) && is_array($json['data']['embedding']);
         }
 
         if ($modelType === 'embedding') {

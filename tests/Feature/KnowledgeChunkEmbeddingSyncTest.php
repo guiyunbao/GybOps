@@ -872,6 +872,50 @@ class KnowledgeChunkEmbeddingSyncTest extends TestCase
             && ! array_key_exists('dimensions', (array) $request->data()));
     }
 
+    public function test_sync_uses_volcengine_multimodal_embedding_endpoint(): void
+    {
+        Http::fake([
+            'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal' => Http::response([
+                'data' => [
+                    'embedding' => [0.21, 0.32, 0.43],
+                    'object' => 'embedding',
+                ],
+                'usage' => ['prompt_tokens' => 8, 'total_tokens' => 8],
+            ]),
+        ]);
+
+        $model = $this->createEmbeddingModel([
+            'name' => 'Doubao Embedding Vision',
+            'model_id' => 'doubao-embedding-vision-251215',
+            'api_url' => 'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal',
+        ]);
+        $knowledgeBase = KnowledgeBase::query()->create([
+            'name' => '火山多模态向量知识库',
+            'description' => '',
+            'content' => 'GEOFlow 支持豆包多模态向量。',
+            'character_count' => 18,
+            'file_type' => 'markdown',
+            'word_count' => 18,
+        ]);
+
+        $this->syncKnowledge(
+            (int) $knowledgeBase->id,
+            'GEOFlow 支持豆包多模态向量。'
+        );
+
+        $chunk = $knowledgeBase->chunks()->firstOrFail();
+
+        $this->assertSame((int) $model->id, (int) $chunk->embedding_model_id);
+        $this->assertSame([0.21, 0.32, 0.43], json_decode((string) $chunk->embedding_json, true));
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal'
+            && $request->hasHeader('Authorization', 'Bearer test-api-key')
+            && $request['model'] === 'doubao-embedding-vision-251215'
+            && ($request['input'][0]['type'] ?? '') === 'text'
+            && ($request['input'][0]['text'] ?? '') === 'GEOFlow 支持豆包多模态向量。'
+            && ! array_key_exists('dimensions', (array) $request->data()));
+    }
+
     public function test_sync_omits_dimensions_parameter_for_openai_compatible_embedding(): void
     {
         Http::fake([

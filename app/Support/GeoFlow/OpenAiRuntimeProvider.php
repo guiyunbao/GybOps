@@ -76,6 +76,47 @@ final class OpenAiRuntimeProvider
     }
 
     /**
+     * 火山方舟多模态向量模型使用 /embeddings/multimodal，输入是文本或图片片段，不是 OpenAI 的字符串数组。
+     */
+    public static function usesVolcengineMultimodalEmbeddings(string $apiUrl, string $modelId = ''): bool
+    {
+        $normalized = rtrim(trim($apiUrl), '/');
+        $path = strtolower((string) (parse_url($normalized, PHP_URL_PATH) ?? ''));
+        if (str_contains($path, '/embeddings/multimodal')) {
+            return true;
+        }
+
+        $host = strtolower((string) (parse_url($normalized, PHP_URL_HOST) ?? ''));
+        $model = strtolower(trim($modelId));
+
+        return ($host === 'volces.com' || str_ends_with($host, '.volces.com'))
+            && str_contains($model, 'embedding-vision');
+    }
+
+    /**
+     * 解析 embedding 的实际请求地址。多模态地址保持原样，不再在后面追加 /embeddings。
+     */
+    public static function resolveEmbeddingEndpoint(string $apiUrl, string $modelId = ''): string
+    {
+        $normalized = rtrim(trim($apiUrl), '/');
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (self::usesVolcengineMultimodalEmbeddings($normalized, $modelId)) {
+            if (str_ends_with(strtolower($normalized), '/embeddings/multimodal')) {
+                return $normalized;
+            }
+
+            return rtrim(self::resolveEmbeddingBaseUrl($normalized), '/').'/embeddings/multimodal';
+        }
+
+        $baseUrl = self::resolveEmbeddingBaseUrl($normalized);
+
+        return $baseUrl === '' ? '' : rtrim($baseUrl, '/').'/embeddings';
+    }
+
+    /**
      * 官方服务使用专用驱动，第三方兼容接口使用 Laravel AI 的 OpenAI Compatible 驱动。
      */
     public static function resolveChatDriver(string $apiUrl, string $modelId = ''): string

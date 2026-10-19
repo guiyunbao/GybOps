@@ -2510,7 +2510,7 @@ return [
         'placeholder_api_key' => '输入API密钥',
         'placeholder_api_key_keep' => '留空则保留当前API密钥',
         'placeholder_api_url' => '例如：https://api.openai.com 或 https://open.bigmodel.cn/api/paas/v4 或完整 .../chat/completions / .../embeddings',
-        'api_url_help' => '支持填写基础地址或完整接口 URL。Gemini 会统一规范为 https://generativelanguage.googleapis.com/v1beta；其他聊天模型默认补全 /v1/chat/completions，embedding 模型默认补全 /v1/embeddings；智谱 /api/paas/v4、火山方舟 /api/v3 这类版本化基础地址会自动补全各自对应的 capability 路径。',
+        'api_url_help' => '支持填写基础地址或完整接口 URL。Gemini 会统一规范为 https://generativelanguage.googleapis.com/v1beta；其他聊天模型默认补全 /v1/chat/completions，embedding 模型默认补全 /v1/embeddings；智谱 /api/paas/v4、火山方舟 /api/v3 这类版本化基础地址会自动补全各自对应的 capability 路径。豆包多模态向量模型使用 /embeddings/multimodal。',
         'limit_help' => '0表示无限制，大于0表示每日最大调用次数',
         'max_tokens_placeholder' => '留空使用默认值（:tokens）',
         'max_tokens_help' => '正文生成的最大输出 token 数，仅聊天模型生效。留空则使用系统默认值，避免依赖各服务商较小的默认上限导致长文被截断。',

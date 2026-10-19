@@ -2370,7 +2370,81 @@ class KnowledgeChunkSyncService
             );
         }
 
+        if (OpenAiRuntimeProvider::usesVolcengineMultimodalEmbeddings(
+            (string) $embeddingMetadata['api_url'],
+            (string) $embeddingMetadata['model_name'],
+        )) {
+            return $this->requestVolcengineMultimodalEmbeddings($inputs, $embeddingMetadata);
+        }
+
         return $this->requestOpenAiCompatibleEmbeddings($inputs, $embeddingMetadata);
+    }
+
+    /**
+     * 火山方舟多模态向量接口一次只返回一个向量，因此每段文本单独请求。
+     *
+     * @param  list<string>  $inputs
+     * @param  array{model_id:int,model_name:string,provider:string,api_url:string,api_key:string,driver:string}  $embeddingMetadata
+     */
+    private function requestVolcengineMultimodalEmbeddings(
+        array $inputs,
+        array $embeddingMetadata,
+    ): KnowledgeEmbeddingProviderResult {
+        $endpoint = OpenAiRuntimeProvider::resolveEmbeddingEndpoint(
+            (string) $embeddingMetadata['api_url'],
+            (string) $embeddingMetadata['model_name'],
+        );
+        $embeddings = [];
+        $promptTokens = 0;
+        $totalTokens = 0;
+
+        foreach (array_values($inputs) as $index => $input) {
+            $request = $this->http->acceptJson()
+                ->asJson()
+                ->withToken((string) $embeddingMetadata['api_key'])
+                ->connectTimeout(8)
+                ->timeout(45);
+            $response = $this->safeHttp->post($request, $endpoint, [
+                'model' => (string) $embeddingMetadata['model_name'],
+                'encoding_format' => 'float',
+                'input' => [
+                    [
+                        'type' => 'text',
+                        'text' => $input,
+                    ],
+                ],
+            ], (int) config('geoflow.outbound_ai_max_bytes', 8 * 1024 * 1024));
+
+            if (! $response->successful()) {
+                $error = data_get($response->json(), 'error.message');
+                $message = is_string($error) && $this->isEmbeddingBatchSizeError($error)
+                    ? 'Embedding provider rejected batch size.'
+                    : 'Embedding provider request failed.';
+
+                throw new \RuntimeException(sprintf(
+                    'HTTP request returned status code %d: %s',
+                    $response->status(),
+                    $message,
+                ), 0, $response->toException());
+            }
+
+            $vector = data_get($response->json(), 'data.embedding');
+            if (! is_array($vector)) {
+                throw new \RuntimeException('invalid_embedding_vector');
+            }
+
+            $embeddings[$index] = $vector;
+            $usage = $response->json('usage');
+            if (is_array($usage)) {
+                $promptTokens += (int) ($usage['prompt_tokens'] ?? 0);
+                $totalTokens += (int) ($usage['total_tokens'] ?? 0);
+            }
+        }
+
+        return new KnowledgeEmbeddingProviderResult($embeddings, [
+            'prompt_tokens' => $promptTokens,
+            'total_tokens' => $totalTokens,
+        ]);
     }
 
     /**
@@ -2385,7 +2459,10 @@ class KnowledgeChunkSyncService
         array $inputs,
         array $embeddingMetadata,
     ): KnowledgeEmbeddingProviderResult {
-        $endpoint = rtrim((string) $embeddingMetadata['api_url'], '/').'/embeddings';
+        $endpoint = OpenAiRuntimeProvider::resolveEmbeddingEndpoint(
+            (string) $embeddingMetadata['api_url'],
+            (string) $embeddingMetadata['model_name'],
+        );
 
         $request = $this->http->acceptJson()
             ->asJson()

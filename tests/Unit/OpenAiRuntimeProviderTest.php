@@ -87,6 +87,30 @@ class OpenAiRuntimeProviderTest extends TestCase
         );
     }
 
+    public function test_it_keeps_volcengine_multimodal_embedding_urls_intact(): void
+    {
+        $fullUrl = 'https://ark.cn-beijing.volces.com/api/v3/embeddings/multimodal';
+
+        $this->assertTrue(OpenAiRuntimeProvider::usesVolcengineMultimodalEmbeddings($fullUrl));
+        $this->assertTrue(OpenAiRuntimeProvider::usesVolcengineMultimodalEmbeddings(
+            'https://ark.cn-beijing.volces.com/api/v3',
+            'doubao-embedding-vision-251215',
+        ));
+        $this->assertFalse(OpenAiRuntimeProvider::usesVolcengineMultimodalEmbeddings(
+            'https://ark.cn-beijing.volces.com/api/v3',
+            'doubao-embedding-text-240515',
+        ));
+        $this->assertSame($fullUrl, OpenAiRuntimeProvider::resolveEmbeddingEndpoint($fullUrl, 'doubao-embedding-vision-251215'));
+        $this->assertSame($fullUrl, OpenAiRuntimeProvider::resolveEmbeddingEndpoint(
+            'https://ark.cn-beijing.volces.com/api/v3',
+            'doubao-embedding-vision-251215',
+        ));
+        $this->assertSame(
+            'https://ark.cn-beijing.volces.com/api/v3/embeddings',
+            OpenAiRuntimeProvider::resolveEmbeddingEndpoint('https://ark.cn-beijing.volces.com/api/v3', 'doubao-embedding-text-240515'),
+        );
+    }
+
     public function test_it_normalizes_a_full_openai_responses_endpoint_to_its_base_url(): void
     {
         $this->assertSame(
