@@ -348,6 +348,14 @@ return [
     // ai_models API Key enc:v1 根材料（仅在此读取 APP_KEY；应用代码禁止 env()，统一 config('geoflow.api_key_crypto_roots')）
     'api_key_crypto_roots' => array_values(array_filter([(string) env('APP_KEY', '')])),
 
+    // Dify 只读运营摘要。密钥首次使用时加密写入 operations_dify_connections。
+    'operations_dify' => [
+        'base_url' => rtrim((string) env('GEOFLOW_DIFY_BASE_URL', ''), '/'),
+        'api_key' => (string) env('GEOFLOW_DIFY_API_KEY', ''),
+        'region' => (string) env('GEOFLOW_OPERATIONS_REGION', '广西'),
+        'cargo_type' => (string) env('GEOFLOW_OPERATIONS_CARGO_TYPE', '大宗货物'),
+    ],
+
     // 登录失败锁定前允许尝试次数
     'max_login_attempts' => (int) env('GEOFLOW_MAX_LOGIN_ATTEMPTS', 5),
     // 超出次数后锁定时长（秒）

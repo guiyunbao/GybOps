@@ -1,0 +1,353 @@
+# 桂运宝运营摘要。导入工作室（Chatflow），不要导入右侧 Agents 测试版。
+# 导入后：Agent 节点改选已有的 qwen3.7-flash；若 MCP 工具显示缺失，按同名工具从 gyb-sch / gyb-prod 重新点选。
+# 发布后在「访问 API」创建 app- 密钥，填入 GEOFLOW_DIFY_API_KEY。
+app:
+  description: |
+    供 GEOFlow 工作日调用的只读运营摘要。请求 POST /v1/chat-messages，response_mode=blocking。
+    输入变量：region、cargo_type、window_start、window_end。回答写入「运营摘要」知识库。
+    只汇总热门线路、货类、运价区间、线索行业分布。不写线索，不发短信，不发应用推送。
+  icon: "\U0001F4CA"
+  icon_background: '#E8F3FF'
+  icon_type: emoji
+  mode: advanced-chat
+  name: 运营摘要
+  use_icon_as_answer_icon: false
+dependencies: []
+kind: app
+version: 0.3.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions: []
+      allowed_file_types: []
+      allowed_file_upload_methods: []
+      enabled: false
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+          - local_file
+          - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: start
+          targetType: agent
+        id: edge-start-agent
+        source: '1760700000001'
+        sourceHandle: source
+        target: '1760700000002'
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: agent
+          targetType: code
+        id: edge-agent-code
+        source: '1760700000002'
+        sourceHandle: source
+        target: '1760700000003'
+        targetHandle: target
+        type: custom
+        zIndex: 0
+      - data:
+          isInIteration: false
+          isInLoop: false
+          sourceType: code
+          targetType: answer
+        id: edge-code-answer
+        source: '1760700000003'
+        sourceHandle: source
+        target: '1760700000004'
+        targetHandle: target
+        type: custom
+        zIndex: 0
+    nodes:
+      - data:
+          desc: GEOFlow 传入的四个输入，变量名必须保持不变
+          selected: false
+          title: 开始
+          type: start
+          variables:
+            - default: 广西
+              label: 区域
+              max_length: 48
+              options: []
+              required: true
+              type: text-input
+              variable: region
+            - default: 大宗货物
+              label: 货类
+              max_length: 48
+              options: []
+              required: true
+              type: text-input
+              variable: cargo_type
+            - default: ''
+              label: 时间窗开始
+              max_length: 32
+              options: []
+              required: true
+              type: text-input
+              variable: window_start
+            - default: ''
+              label: 时间窗结束
+              max_length: 32
+              options: []
+              required: true
+              type: text-input
+              variable: window_end
+        height: 168
+        id: '1760700000001'
+        position:
+          x: 40
+          y: 280
+        positionAbsolute:
+          x: 40
+          y: 280
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          agent_parameters:
+            instruction:
+              type: constant
+              value: |
+                你是桂运宝运营摘要智能体。只做只读汇总，结果会写入内容系统的运营摘要知识库。
+
+                区域：{{#1760700000001.region#}}
+                货类：{{#1760700000001.cargo_type#}}
+                时间窗：{{#1760700000001.window_start#}} 至 {{#1760700000001.window_end#}}
+
+                只使用下面这些只读工具。参数名以工具自己的定义为准，把区域、货类和时间窗传进去：
+                - gyb-sch 的 get-cargos：线路和货类计数
+                - gyb-sch 的 get-cargo-prices：运价区间
+                - gyb-sch 的 search-cargo-owner-leads：只统计行业、城市、货类条数
+                - gyb-prod 的 find-cargo-by-query：按区域和货类查货源
+                - gyb-prod 的 get-possible-cargo-price：参考运价
+                - gyb-prod 的 get-cargo-rings：线路或环线分布
+
+                禁止创建、更新或写入线索。禁止发送短信。禁止发送应用推送。
+                禁止查询或复述联系人、电话、证件、车牌、司机、用户、订单和运单。
+                从工具结果里丢掉联系人、电话、地址明细、证件、车牌、司机姓名、用户标识、订单标识、运单标识和会话标识。
+                工具没有返回的数字不要编造。某一项没有数据时写「该项暂无业务系统聚合数据」。
+
+                只输出下面四节 Markdown，不要输出思考过程，不要输出工具名称：
+                ## 热门线路
+                ## 货类
+                ## 运价区间
+                ## 线索行业分布
+                每一条带数字的句子末尾写「来源：业务系统聚合」。
+            maximum_iterations:
+              type: constant
+              value: 4
+            model:
+              type: constant
+              value:
+                completion_params:
+                  temperature: 0.2
+                mode: chat
+                model: qwen3.7-flash
+                model_type: llm
+                provider: langgenius/tongyi/tongyi
+                type: model-selector
+            query:
+              type: constant
+              value: '{{#sys.query#}}'
+            tools:
+              type: constant
+              value:
+                - enabled: true
+                  extra:
+                    description: 按区域、货类和时间窗汇总货源线路与货类计数
+                  parameters: {}
+                  provider_name: gyb-sch
+                  provider_show_name: gyb-sch
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读查询货源聚合。不要返回联系人、电话、订单或运单。
+                  tool_label: get-cargos
+                  tool_name: get-cargos
+                  type: mcp
+                - enabled: true
+                  extra:
+                    description: 按区域、货类和时间窗汇总运价区间
+                  parameters: {}
+                  provider_name: gyb-sch
+                  provider_show_name: gyb-sch
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读查询运价区间。不要返回订单或运单。
+                  tool_label: get-cargo-prices
+                  tool_name: get-cargo-prices
+                  type: mcp
+                - enabled: true
+                  extra:
+                    description: 只统计线索的行业、城市和货类，不读取联系人
+                  parameters: {}
+                  provider_name: gyb-sch
+                  provider_show_name: gyb-sch
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读统计货主线索的行业、城市和货类。丢掉联系人、电话和地址。
+                  tool_label: search-cargo-owner-leads
+                  tool_name: search-cargo-owner-leads
+                  type: mcp
+                - enabled: true
+                  extra:
+                    description: 按区域和货类查询货源
+                  parameters: {}
+                  provider_name: gyb-prod
+                  provider_show_name: gyb-prod
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读按条件查询货源。不要返回联系人、电话、车牌或证件。
+                  tool_label: find-cargo-by-query
+                  tool_name: find-cargo-by-query
+                  type: mcp
+                - enabled: true
+                  extra:
+                    description: 查询参考运价
+                  parameters: {}
+                  provider_name: gyb-prod
+                  provider_show_name: gyb-prod
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读查询参考运价区间。
+                  tool_label: get-possible-cargo-price
+                  tool_name: get-possible-cargo-price
+                  type: mcp
+                - enabled: true
+                  extra:
+                    description: 查询货源线路或环线分布
+                  parameters: {}
+                  provider_name: gyb-prod
+                  provider_show_name: gyb-prod
+                  schemas: []
+                  settings: {}
+                  tool_description: 只读查询线路或环线分布。不要返回联系人或证件。
+                  tool_label: get-cargo-rings
+                  tool_name: get-cargo-rings
+                  type: mcp
+          agent_strategy_label: FunctionCalling
+          agent_strategy_name: function_calling
+          agent_strategy_provider_name: langgenius/agent/agent
+          desc: 只读汇总线路、货类、运价和线索行业
+          memory:
+            query_prompt_template: '{{#sys.query#}}'
+            window:
+              enabled: false
+              size: 1
+          output_schema: null
+          selected: false
+          title: 运营摘要智能体
+          tool_node_version: '2'
+          type: agent
+        height: 220
+        id: '1760700000002'
+        position:
+          x: 360
+          y: 260
+        positionAbsolute:
+          x: 360
+          y: 260
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          code: |
+            import re
+
+            def main(text: str) -> dict:
+                cleaned = text or ""
+                cleaned = re.sub(r"(?<!\d)1[3-9]\d{9}(?!\d)", "[已省略]", cleaned)
+                cleaned = re.sub(r"(?<!\d)\d{17}[\dXx](?!\d)", "[已省略]", cleaned)
+                cleaned = re.sub(
+                    r"(订单号|运单号)\s*[:：]?\s*[A-Za-z0-9-]{6,}",
+                    lambda match: match.group(1) + "：[已省略]",
+                    cleaned,
+                )
+                for name in (
+                    "upsert-cargo-owner-lead",
+                    "send-mobile-custom-push",
+                    "send-sms-template-push",
+                ):
+                    cleaned = cleaned.replace(name, "")
+                return {"result": cleaned.strip()}
+          code_language: python3
+          desc: 去掉电话、证件号、订单号、运单号和禁止进入内容流水线的工具名
+          outputs:
+            result:
+              children: null
+              type: string
+          selected: false
+          title: 脱敏
+          type: code
+          variables:
+            - value_selector:
+                - '1760700000002'
+                - text
+              value_type: string
+              variable: text
+        height: 98
+        id: '1760700000003'
+        position:
+          x: 680
+          y: 280
+        positionAbsolute:
+          x: 680
+          y: 280
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+      - data:
+          answer: '{{#1760700000003.result#}}'
+          desc: ''
+          selected: false
+          title: 回复
+          type: answer
+          variables: []
+        height: 100
+        id: '1760700000004'
+        position:
+          x: 980
+          y: 280
+        positionAbsolute:
+          x: 980
+          y: 280
+        selected: false
+        sourcePosition: right
+        targetPosition: left
+        type: custom
+        width: 244
+    viewport:
+      x: 0
+      y: 0
+      zoom: 0.8

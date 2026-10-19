@@ -14,6 +14,7 @@
 
 ## 管理与运营
 
+- [新手使用手册](guide/README.md)：登录后的后台地图、第一次生成草稿的步骤，以及数据、内容、分发和系统设置的用法。
 - [AI 质检运行手册](ai-quality-inspection-runbook.md)。
 - [管理员 AI 模型隔离与共享](admin-ai-config-sharing-runbook.md)。
 - [AI 工作台与系统帮助](ai-workspace-runbook.md)。

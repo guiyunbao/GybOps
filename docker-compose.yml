@@ -43,7 +43,9 @@ services:
       dockerfile: docker/Dockerfile
       args:
         PHP_CLI_IMAGE: ${PHP_CLI_IMAGE:-php:8.4-cli-bookworm}
+        COMPOSER_IMAGE: ${COMPOSER_IMAGE:-composer:2}
         PECL_REDIS_VERSION: ${PECL_REDIS_VERSION:-6.3.0}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-mirrors.tuna.tsinghua.edu.cn}
     container_name: geoflow-init
     working_dir: /var/www/html
     env_file:
@@ -83,7 +85,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: nginx:1.27-alpine
+    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
     container_name: geoflow-web
     environment:
       GEOFLOW_FORWARDED_PREFIX: "${GEOFLOW_FORWARDED_PREFIX:-}"

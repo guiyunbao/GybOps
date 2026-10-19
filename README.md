@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/8dbbf34e-e9c1-4139-977a-8e78394e34d9
 
 GEOFlow 把可信知识、AI 内容生产、质量门禁、人工审核、多站点分发与数据分析接进一条可持续运营链路。品牌、增长和内容团队可以用它建设企业官网、GEO 子频道、行业信源站或内部内容运营平台，让资料、流程、发布结果和运营数据留在同一套系统中。
 
-[快速开始](#快速开始) · [界面预览](#界面预览) · [核心能力](#geoflow-30-核心能力) · [文档中心](docs/README.md) · [3.0 升级教程](docs/deployment/GEOFLOW_V3_UPGRADE.md) · [蓝绿部署与自动迁移](docs/blue-green-deployment-usage.md) · [更新日志](docs/CHANGELOG.md) · [官方网站](https://www.geoflow.me)
+[快速开始](#快速开始) · [新手使用手册](docs/guide/README.md) · [界面预览](#界面预览) · [核心能力](#geoflow-30-核心能力) · [文档中心](docs/README.md) · [3.0 升级教程](docs/deployment/GEOFLOW_V3_UPGRADE.md) · [蓝绿部署与自动迁移](docs/blue-green-deployment-usage.md) · [更新日志](docs/CHANGELOG.md) · [官方网站](https://www.geoflow.me)
 
 [![Source version](https://img.shields.io/badge/source-3.2.0--beta.1-2563eb)](version.json)
 [![Latest release](https://img.shields.io/github/v/release/yaojingang/GEOFlow?display_name=tag)](https://github.com/yaojingang/GEOFlow/releases/latest)
@@ -196,6 +196,8 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-or
 已有部署请完整执行 [停机排空与安全迁移协议](docs/deployment/DEPLOYMENT.md)，避免直接运行 `git pull` 后重建容器。正式版本的精确升级命令和组件兼容关系以对应 GitHub Release 为准。
 
 逐步操作见 [3.0 升级教程](docs/deployment/GEOFLOW_V3_UPGRADE.md)，包含普通 Docker 部署与已接入 Updater 的两种路径、备份、数据回填、验收和恢复说明；也可从 [Wiki](https://github.com/yaojingang/GEOFlow/wiki/v3.0.0-升级教程) 阅读。
+
+服务启动后，按 [新手使用手册](docs/guide/README.md) 从登录、模型检测到生成第一篇草稿。手册按后台侧栏说明数据中心、任务、文章、内容资产、分发、AI 配置和网站设置。
 
 ---
 

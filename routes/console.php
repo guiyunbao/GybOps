@@ -209,3 +209,29 @@ Schedule::command('hosted-sites:reconcile', [
     ->withoutOverlapping(10);
 
 Schedule::command('geoflow:check-topic-temporal-state')->everyFiveMinutes()->onOneServer()->withoutOverlapping(5);
+
+Schedule::command('geoflow:sync-operations-brief')
+    ->weekdays()
+    ->dailyAt('06:30')
+    ->timezone('Asia/Shanghai')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+Schedule::command('geoflow:operations-review')
+    ->weeklyOn(1, '08:00')
+    ->timezone('Asia/Shanghai')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+Schedule::command('geoflow:sync-official-sources --cadence=weekday')
+    ->weekdays()
+    ->dailyAt('07:10')
+    ->timezone('Asia/Shanghai')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+Schedule::command('geoflow:sync-official-sources --cadence=weekly')
+    ->weeklyOn(1, '07:40')
+    ->timezone('Asia/Shanghai')
+    ->onOneServer()
+    ->withoutOverlapping(30);
