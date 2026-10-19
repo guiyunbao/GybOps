@@ -2,8 +2,14 @@
 
 namespace App\Support;
 
+use App\Support\Site\SiteSettingsBag;
+
 final class AdminWeb
 {
+    public const PLATFORM_NAME_SETTING_KEY = 'admin_platform_name';
+
+    public const DEFAULT_PLATFORM_NAME = '桂运宝智能运营平台';
+
     /**
      * 兼容 bak 语言占位符：同时支持 Laravel `:key` 与旧版 `{key}`。
      *
@@ -21,9 +27,14 @@ final class AdminWeb
         return $text;
     }
 
+    /**
+     * 后台左上角和页面标题使用的平台名称。
+     */
     public static function siteName(): string
     {
-        return 'GEOFlow';
+        $name = trim(SiteSettingsBag::get(self::PLATFORM_NAME_SETTING_KEY, self::DEFAULT_PLATFORM_NAME));
+
+        return $name !== '' ? $name : self::DEFAULT_PLATFORM_NAME;
     }
 
     public static function basePath(): string

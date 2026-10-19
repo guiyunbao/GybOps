@@ -285,6 +285,39 @@
         </details>
         @endif
 
+        @unless ($showHomepageEditor)
+            <details id="site-settings-platform-name" class="mb-6 bg-white shadow rounded-lg overflow-hidden group" @if (($siteSettingsOpenTarget ?? '') === 'site-settings-platform-name' || $errors->has('platform_name')) open @endif>
+                <summary class="px-6 py-5 border-b border-gray-200 flex items-center justify-between gap-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-medium text-gray-900">{{ __('admin.site_settings.platform_name.title') }}</h3>
+                        <p class="mt-1 text-sm leading-6 text-gray-600">{{ __('admin.site_settings.platform_name.description') }}</p>
+                    </div>
+                    <i data-lucide="chevron-down" class="w-5 h-5 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180" aria-hidden="true"></i>
+                </summary>
+                <div class="px-6 py-6">
+                    @if ($canManagePlatformName ?? false)
+                        <form method="POST" action="{{ route('admin.site-settings.platform-name.update') }}" class="space-y-4">
+                            @csrf
+                            <div>
+                                <label for="platform_name" class="block text-sm font-medium text-gray-700 mb-2">{{ __('admin.site_settings.platform_name.field') }}</label>
+                                <input id="platform_name" name="platform_name" type="text" required maxlength="40"
+                                       value="{{ old('platform_name', $platformName ?? '') }}"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="{{ __('admin.site_settings.platform_name.placeholder') }}">
+                                <p class="mt-1 text-xs text-gray-500">{{ __('admin.site_settings.platform_name.help') }}</p>
+                            </div>
+                            <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                {{ __('admin.site_settings.platform_name.save') }}
+                            </button>
+                        </form>
+                    @else
+                        <p class="text-sm text-gray-700">{{ $platformName ?? '' }}</p>
+                        <p class="mt-2 text-xs text-gray-500">{{ __('admin.site_settings.platform_name.forbidden') }}</p>
+                    @endif
+                </div>
+            </details>
+        @endunless
+
         <details id="site-settings-basic" class="mb-6 bg-white shadow rounded-lg overflow-hidden group">
             <summary class="px-6 py-5 border-b border-gray-200 flex items-center justify-between gap-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                 <div class="flex min-w-0 items-start gap-4">

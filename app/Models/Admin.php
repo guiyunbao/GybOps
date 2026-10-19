@@ -104,6 +104,16 @@ class Admin extends Authenticatable
         return $this->isSuperAdmin();
     }
 
+    /**
+     * 后台平台名称只允许管理员和超级管理员修改。
+     */
+    public function canManagePlatformName(): bool
+    {
+        $role = trim(strtolower((string) ($this->role ?? '')));
+
+        return $role === 'admin' || $this->isSuperAdmin();
+    }
+
     public function revokeAuthenticationCredentials(): void
     {
         DB::transaction(function (): void {

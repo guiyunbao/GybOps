@@ -708,6 +708,9 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
         Route::prefix('site-settings')->name('site-settings.')->group(function () {
             Route::get('/', [SiteSettingsController::class, 'index'])->name('index');
             Route::post('/', [SiteSettingsController::class, 'update'])->name('update');
+            Route::post('platform-name', [SiteSettingsController::class, 'updatePlatformName'])
+                ->middleware('throttle:admin-sensitive')
+                ->name('platform-name.update');
             Route::get('friend-links', [FriendLinkSettingsController::class, 'edit'])->name('friend-links.edit');
             Route::post('friend-links', FriendLinkSettingsController::class)->name('friend-links.update');
             Route::post('theme', [SiteSettingsController::class, 'updateTheme'])->name('theme');

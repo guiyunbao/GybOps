@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Models\LeadForm;
 use App\Models\SiteSetting;
 use App\Services\Admin\SiteThemeReplicationService;
@@ -66,6 +67,8 @@ class SiteSettingsController extends Controller
             'pageTitle' => __('admin.site_settings.page_title'),
             'activeMenu' => 'site_settings',
             'adminSiteName' => AdminWeb::siteName(),
+            'platformName' => AdminWeb::siteName(),
+            'canManagePlatformName' => auth('admin')->user()?->canManagePlatformName() === true,
             'settings' => $settings,
             'appearanceRevision' => $settings['_appearance_revision'],
             'canEditAnalytics' => $canManageProtectedWorkflows,
@@ -242,6 +245,49 @@ class SiteSettingsController extends Controller
         }
 
         return redirect()->route('admin.site-settings.index')->with('message', __('admin.site_settings.message.saved'));
+    }
+
+    /**
+     * 保存后台左上角显示的平台名称。
+     */
+    public function updatePlatformName(Request $request): RedirectResponse
+    {
+        $admin = $request->user('admin');
+        abort_unless($admin instanceof Admin && $admin->canManagePlatformName(), 403);
+
+        $payload = $request->validate([
+            'platform_name' => ['required', 'string', 'max:40'],
+        ], [
+            'platform_name.required' => __('admin.site_settings.platform_name.required'),
+            'platform_name.max' => __('admin.site_settings.platform_name.max'),
+        ]);
+
+        $name = trim((string) $payload['platform_name']);
+        if ($name === '' || preg_match('/[<>\r\n]/u', $name) === 1) {
+            throw ValidationException::withMessages([
+                'platform_name' => __('admin.site_settings.platform_name.invalid'),
+            ]);
+        }
+
+        $previous = AdminWeb::siteName();
+        SiteSetting::query()->updateOrCreate(
+            ['setting_key' => AdminWeb::PLATFORM_NAME_SETTING_KEY],
+            ['setting_value' => $name],
+        );
+        SiteSettingsBag::forget();
+
+        $request->attributes->set('admin_activity_action', 'platform_name');
+        $request->attributes->set('admin_activity_target_type', 'site_setting');
+        $request->attributes->set('admin_activity_details', [
+            'previous_name' => $previous,
+            'platform_name' => $name,
+            'changed' => $previous !== $name,
+        ]);
+
+        return redirect()
+            ->route('admin.site-settings.index')
+            ->with('message', __('admin.site_settings.platform_name.saved'))
+            ->with('site_settings_open_target', 'site-settings-platform-name');
     }
 
     /**

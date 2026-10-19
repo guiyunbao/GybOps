@@ -145,7 +145,7 @@ html[data-gf-sidebar-resizing] .gf-sidebar__resize-handle::after { opacity: 1; }
 html[data-gf-sidebar-resizing],
 html[data-gf-sidebar-resizing] body { cursor: col-resize; user-select: none; }
 .gf-sidebar__brand { align-items: center; display: flex; flex: 0 0 var(--gf-topbar-height); justify-content: space-between; padding: 0 16px; }
-.gf-wordmark { color: var(--gf-gray-900); font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+.gf-wordmark { color: var(--gf-gray-900); flex: 1 1 auto; font-size: 15px; font-weight: 650; letter-spacing: -.02em; line-height: 1.25; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gf-sidebar__nav { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; padding: 0 12px 12px; }
 .gf-sidebar__primary { flex: 0 0 auto; min-height: auto; overflow: visible; }
 .gf-sidebar__group { margin-top: 12px; }

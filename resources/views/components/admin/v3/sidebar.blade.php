@@ -3,6 +3,7 @@
     $activeKey = (string) ($current['key'] ?? 'dashboard');
     $accountName = trim((string) $admin->name) ?: (string) $admin->username;
     $accountInitial = \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($accountName, 0, 1));
+    $platformName = \App\Support\AdminWeb::siteName();
 @endphp
 <aside class="gf-sidebar" aria-label="{{ __('admin.ui_v3.sidebar_label') }}">
     <div
@@ -17,7 +18,7 @@
         data-sidebar-resize
     ></div>
     <div class="gf-sidebar__brand">
-        <a class="gf-wordmark" href="{{ \App\Support\AdminWeb::routePath('admin.dashboard') }}">GEOFlow</a>
+        <a class="gf-wordmark" href="{{ \App\Support\AdminWeb::routePath('admin.dashboard') }}" title="{{ $platformName }}">{{ $platformName }}</a>
         <button class="gf-icon-button" type="button" aria-label="{{ __('admin.ui_v3.collapse_sidebar') }}" aria-expanded="true" data-sidebar-collapse><i data-lucide="panel-left-close"></i></button>
         <button class="gf-icon-button gf-mobile-only" type="button" aria-label="{{ __('admin.ui_v3.close_sidebar') }}" data-sidebar-close><i data-lucide="x"></i></button>
     </div>
