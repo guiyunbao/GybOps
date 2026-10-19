@@ -66,7 +66,7 @@
                         <i data-lucide="plus" class="h-4 w-4"></i>
                         {{ __('admin.button.create_article') }}
                     </a>
-                    <a href="{{ route('admin.manual-publications.index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition-[background-color,border-color,transform] duration-150 [@media(hover:hover)]:hover:border-gray-400 [@media(hover:hover)]:hover:bg-gray-50 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                    <a href="{{ route('admin.manual-publications.index') }}" data-gf-guide="articles-publish" class="inline-flex min-h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition-[background-color,border-color,transform] duration-150 [@media(hover:hover)]:hover:border-gray-400 [@media(hover:hover)]:hover:bg-gray-50 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                         <i data-lucide="send" class="h-4 w-4"></i>
                         {{ __('admin.manual_publications.nav') }}
                     </a>
@@ -293,7 +293,7 @@
             </div>
         </div>
 
-        <div id="article-list" class="scroll-mt-24 bg-white shadow rounded-lg">
+        <div id="article-list" class="scroll-mt-24 bg-white shadow rounded-lg" data-gf-guide="articles-table">
             <div class="px-6 py-4 border-b border-gray-200">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900">

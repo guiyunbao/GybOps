@@ -66,6 +66,7 @@
                 @if($name === 'materials') data-materials-navigation-item="{{ $item['key'] }}" @endif
                 @if($name === 'distribution') data-distribution-navigation-item="{{ $item['key'] }}" @endif
                 @if($item['active']) aria-current="page" @endif
+                @if(! empty($item['guide'])) data-gf-guide="{{ $item['guide'] }}" @endif
                 class="relative inline-flex min-h-10 items-center gap-2 border-b-2 px-0.5 pb-2 text-sm font-semibold transition duration-[120ms] motion-reduce:transition-none active:scale-[.98] motion-reduce:active:scale-100 {{ $item['active'] ? 'border-blue-600 text-gray-950' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800' }}"
             >
                 @if(! empty($item['icon']))

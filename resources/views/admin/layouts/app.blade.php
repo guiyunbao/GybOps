@@ -5,6 +5,13 @@
     $uiV3 = is_array($adminUiV3 ?? null) ? $adminUiV3 : [];
     $pageIdentity = is_array($uiV3['page_identity'] ?? null) ? $uiV3['page_identity'] : [];
     $bodyHeadingMode = trim($__env->yieldContent('body-heading')) ?: ($pageIdentity['body_heading'] ?? 'content');
+    $adminPageGuide = null;
+    if ($adminUiV3Enabled && $currentAdmin instanceof \App\Models\Admin) {
+        $adminPageGuide = app(\App\Services\Admin\AdminGuideCatalog::class)->payload(
+            $currentAdmin,
+            request()->route()?->getName(),
+        );
+    }
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -71,6 +78,7 @@
                     :update-notification="$adminUpdateNotificationPayload ?? []"
                     :page-title="trim($__env->yieldContent('topbar-title')) ?: ($pageIdentity['title'] ?? null)"
                     :page-icon="trim($__env->yieldContent('topbar-icon')) ?: ($pageIdentity['icon'] ?? null)"
+                    :show-page-guide="is_array($adminPageGuide)"
                 />
                 <main class="gf-main" id="main-content">
                     @if (!empty($uiV3['show_settings_navigation']))
@@ -95,6 +103,9 @@
         <x-admin.v3.dialogs :admin="$currentAdmin" :site-url="$uiV3['site_url'] ?? config('app.url')" />
         <x-admin.action-dialog />
         @include('admin.partials.welcome-modal')
+        @if (is_array($adminPageGuide))
+            <script type="application/json" id="gf-page-guide">@json($adminPageGuide)</script>
+        @endif
         @if (is_array($anonymousUsageTelemetryPayload ?? null))
             <script src="{{ asset('js/geoflow-pulse.js') }}" defer></script>
         @endif

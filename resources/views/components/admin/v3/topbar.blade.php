@@ -3,6 +3,7 @@
     'updateNotification' => [],
     'pageTitle' => null,
     'pageIcon' => null,
+    'showPageGuide' => false,
 ])
 @php
     $updateState = is_array($updateNotification['state'] ?? null) ? $updateNotification['state'] : [];
@@ -26,12 +27,17 @@
 @endphp
 <header class="gf-topbar">
     <button class="gf-icon-button gf-mobile-only" type="button" aria-label="{{ __('admin.ui_v3.open_sidebar') }}" data-sidebar-open><i data-lucide="menu"></i></button>
-    @if ($pageTitle !== '')
+    @if ($pageTitle !== '' || $showPageGuide)
         <div class="gf-topbar__identity" data-gf-topbar-identity @if($pageIcon !== '') data-page-icon="{{ $pageIcon }}" @endif>
-            @if ($pageIcon !== '')
+            @if ($pageIcon !== '' && $pageTitle !== '')
                 <span class="gf-topbar__identity-icon" aria-hidden="true"><i data-lucide="{{ $pageIcon }}"></i></span>
             @endif
-            <span class="gf-topbar__title">{{ $pageTitle }}</span>
+            @if ($pageTitle !== '')
+                <span class="gf-topbar__title">{{ $pageTitle }}</span>
+            @endif
+            @if ($showPageGuide)
+                <button class="gf-text-button gf-topbar__guide" type="button" data-gf-guide-replay>{{ __('admin.page_guide.replay') }}</button>
+            @endif
         </div>
     @endif
     <div class="gf-topbar__actions">

@@ -134,21 +134,26 @@ body.admin-action-dialog-open {
     line-height: 20px;
 }
 
-.admin-action-dialog__field input {
+.admin-action-dialog__field input,
+.admin-action-dialog__field select,
+.admin-action-dialog__field textarea {
     box-sizing: border-box;
     width: 100%;
-    min-height: 42px;
+    min-height: 40px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
     background: #fff;
     color: #111827;
     font: inherit;
     font-size: 14px;
-    padding: 9px 11px;
+    line-height: 1.4;
+    padding: 9px 12px;
     outline: none;
 }
 
-.admin-action-dialog__field input:focus {
+.admin-action-dialog__field input:focus,
+.admin-action-dialog__field select:focus,
+.admin-action-dialog__field textarea:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, .16);
 }

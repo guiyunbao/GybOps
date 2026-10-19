@@ -10,13 +10,13 @@
                 </div>
                 <x-admin.v3.materials-subnav active="titles" />
             </div>
-            <a href="{{ route('admin.title-libraries.create') }}" class="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 [@media(hover:hover)]:hover:bg-green-700 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
+            <a href="{{ route('admin.title-libraries.create') }}" data-gf-guide="titles-create" class="inline-flex min-h-10 w-fit items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 [@media(hover:hover)]:hover:bg-green-700 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">
                 <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
                 {{ __('admin.title_libraries.create') }}
             </a>
         </header>
 
-        <div class="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:gap-6">
+        <div class="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:gap-6" data-gf-guide="titles-list">
             <div class="bg-white overflow-hidden shadow rounded-lg">
                 <div class="p-5">
                     <div class="flex items-center">

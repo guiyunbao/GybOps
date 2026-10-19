@@ -66,7 +66,7 @@
                 <x-admin.v3.tasks-subnav active="task-list" />
             </div>
             <div class="flex flex-wrap gap-3 sm:justify-end">
-                <a href="{{ route('admin.tasks.create') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                <a href="{{ route('admin.tasks.create') }}" data-gf-guide="tasks-create" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
                     <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
                     {{ __('admin.button.create_task') }}
                 </a>
@@ -83,7 +83,7 @@
             </div>
         @endif
 
-        <section class="mb-6 overflow-hidden rounded-lg bg-white shadow" aria-labelledby="task-overview-heading">
+        <section class="mb-6 overflow-hidden rounded-lg bg-white shadow" aria-labelledby="task-overview-heading" data-gf-guide="tasks-overview">
             <div class="border-b border-gray-200 px-5 py-4 sm:px-6">
                 <h2 id="task-overview-heading" class="text-lg font-medium text-gray-900">{{ __('admin.tasks.monitoring.overview_title') }}</h2>
                 <p class="mt-1 text-sm leading-6 text-gray-500">{{ __('admin.tasks.monitoring.overview_description') }}</p>

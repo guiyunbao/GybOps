@@ -121,12 +121,12 @@
                             <i data-lucide="brain" class="mr-2 h-4 w-4"></i>
                             {{ __('admin.materials.knowledge_hub_label') }}
                         </span>
-                        <a href="{{ route('admin.knowledge-bases.create') }}" class="inline-flex min-h-10 w-fit items-center justify-center gap-2 whitespace-nowrap rounded-md border border-orange-600 bg-orange-600 px-4 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-150 [@media(hover:hover)]:hover:border-orange-700 [@media(hover:hover)]:hover:bg-orange-700 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
+                        <a href="{{ route('admin.knowledge-bases.create') }}" data-gf-guide="knowledge-create" class="inline-flex min-h-10 w-fit items-center justify-center gap-2 whitespace-nowrap rounded-md border border-orange-600 bg-orange-600 px-4 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-150 [@media(hover:hover)]:hover:border-orange-700 [@media(hover:hover)]:hover:bg-orange-700 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
                             <i data-lucide="plus" class="h-4 w-4"></i>
                             {{ __('admin.materials.knowledge_hub_create') }}
                         </a>
                     </div>
-                    <div>
+                    <div data-gf-guide="knowledge-hub">
                         <h2 class="text-2xl font-bold tracking-tight text-gray-900">{{ __('admin.materials.knowledge_hub_title') }}</h2>
                         <p class="mt-2 max-w-4xl text-sm leading-6 text-gray-600">{{ __('admin.materials.knowledge_hub_desc') }}</p>
                         <nav class="-ml-2 mt-3 flex flex-wrap items-center gap-1" aria-label="{{ __('admin.materials.knowledge_hub_label') }}">
@@ -134,7 +134,7 @@
                                 <i data-lucide="sparkles" class="h-4 w-4"></i>
                                 {{ __('admin.materials.knowledge_hub_enterprise') }}
                             </a>
-                            <a href="{{ route('admin.knowledge-bases.index') }}" class="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-orange-700 transition-[background-color,color,transform] duration-150 [@media(hover:hover)]:hover:bg-white [@media(hover:hover)]:hover:text-orange-800 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
+                            <a href="{{ route('admin.knowledge-bases.index') }}" data-gf-guide="knowledge-list" class="inline-flex min-h-10 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-orange-700 transition-[background-color,color,transform] duration-150 [@media(hover:hover)]:hover:bg-white [@media(hover:hover)]:hover:text-orange-800 active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600">
                                 <i data-lucide="database" class="h-4 w-4"></i>
                                 {{ __('admin.materials.manage_knowledge_bases') }}
                             </a>

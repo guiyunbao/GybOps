@@ -71,6 +71,7 @@
     --gf-content-max: 1280px;
     --gf-radius-nav: 6px;
     --gf-radius-control: 8px;
+    --gf-control-height: 40px;
     --gf-radius-focus: 16px;
     --gf-shadow-surface: 0 1px 3px rgba(15, 23, 42, 0.1);
     --gf-shadow-menu: 0 10px 24px rgba(15, 23, 42, 0.12);
@@ -115,6 +116,20 @@
 .gf-admin-v3 h2,
 .gf-admin-v3 h3 { text-wrap: balance; }
 .gf-admin-v3 p { text-wrap: pretty; }
+
+/* Align text controls with min-h-10 / .gf-button across pages and dialogs. */
+.gf-admin-v3 input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not([type='file']):not([type='hidden']):not([type='image']):not([type='button']):not([type='submit']):not([type='reset']),
+.gf-admin-v3 select,
+.gf-admin-v3 textarea {
+    box-sizing: border-box;
+    line-height: 1.4;
+    min-height: var(--gf-control-height);
+    padding: 9px 12px;
+}
+
+.gf-admin-v3 select {
+    background-position: right 12px center;
+}
 
 .gf-skip-link { background: var(--gf-gray-900); border-radius: 0 0 8px 8px; color: #fff; left: 16px; padding: 10px 14px; position: fixed; top: -52px; z-index: 200; }
 .gf-skip-link:focus { top: 0; }
@@ -198,6 +213,14 @@ html[data-gf-sidebar-resizing] body { cursor: col-resize; user-select: none; }
 .gf-topbar__identity-icon { align-items: center; color: var(--gf-blue-600); display: inline-flex; flex: 0 0 18px; justify-content: center; }
 .gf-topbar__identity-icon svg { height: 18px; width: 18px; }
 .gf-topbar__title { font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gf-topbar__guide { flex: 0 0 auto; font-size: 13px; white-space: nowrap; }
+.gf-page-guide__shade { border-radius: 10px; box-shadow: 0 0 0 9999px rgba(15, 23, 42, .62); pointer-events: none; position: fixed; z-index: 80; }
+.gf-page-guide__card { background: #fff; border-radius: 12px; box-shadow: 0 16px 40px rgba(15, 23, 42, .18); padding: 16px; position: fixed; width: min(360px, calc(100vw - 32px)); z-index: 81; }
+.gf-page-guide__card h2 { font-size: 16px; font-weight: 700; line-height: 1.4; margin: 4px 0 8px; }
+.gf-page-guide__body { color: #4b5563; font-size: 14px; line-height: 1.6; margin: 0; }
+.gf-page-guide__progress { color: #2563eb; font-size: 12px; font-weight: 700; margin: 0; }
+.gf-page-guide__actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.gf-page-guide.is-narrow .gf-page-guide__card { bottom: 16px; left: 16px; right: 16px; top: auto; width: auto; }
 .gf-topbar__actions { align-items: center; display: flex; gap: 10px; margin-left: auto; }
 .gf-pwa-install[hidden] { display: none; }
 .gf-pwa-install { white-space: nowrap; }
@@ -310,7 +333,7 @@ html[data-gf-sidebar-resizing] body { cursor: col-resize; user-select: none; }
 .gf-form-section__fields { display: grid; gap: 18px; }
 .gf-field { display: grid; gap: 7px; position: relative; }
 .gf-field > span { color: var(--gf-gray-700); font-size: 12px; font-weight: 650; }
-.gf-field input, .gf-field select, .gf-field textarea { background: #fff; border: 1px solid var(--gf-gray-300); border-radius: 7px; color: var(--gf-gray-800); min-height: 40px; outline: 0; padding: 9px 11px; resize: vertical; width: 100%; }
+.gf-field input, .gf-field select, .gf-field textarea { background: #fff; border: 1px solid var(--gf-gray-300); border-radius: 7px; color: var(--gf-gray-800); min-height: var(--gf-control-height); outline: 0; padding: 9px 12px; resize: vertical; width: 100%; }
 .gf-field input:disabled { background: var(--gf-gray-50); color: var(--gf-gray-500); }
 .gf-field > small { color: var(--gf-gray-400); font-size: 10px; }
 .gf-settings-actions { align-items: center; background: var(--gf-gray-50); border-top: 1px solid var(--gf-gray-200); display: flex; gap: 10px; justify-content: flex-end; padding: 14px 24px; }

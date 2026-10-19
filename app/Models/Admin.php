@@ -47,6 +47,7 @@ class Admin extends Authenticatable
         'auth_version',
         'welcome_seen_version',
         'welcome_dismissed_at',
+        'guide_progress',
     ];
 
     protected function casts(): array
@@ -54,6 +55,7 @@ class Admin extends Authenticatable
         return [
             'last_login' => 'datetime',
             'welcome_dismissed_at' => 'datetime',
+            'guide_progress' => 'array',
             'created_by' => 'integer',
             'auth_version' => 'integer',
             'shared_ai_config_owner_id' => 'integer',

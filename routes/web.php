@@ -7,6 +7,7 @@
 use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\AdminActivityLogController;
 use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminGuideController;
 use App\Http\Controllers\Admin\AdminRecentActivityController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminWelcomeController;
@@ -152,6 +153,7 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
         // 会话与首页
         Route::post('logout', [AdminAuthController::class, 'logout'])->name('logout');
         Route::post('welcome/dismiss', [AdminWelcomeController::class, 'dismiss'])->name('welcome.dismiss');
+        Route::post('guides/complete', [AdminGuideController::class, 'complete'])->name('guides.complete');
         Route::middleware('admin.ui-v3')->group(function (): void {
             Route::get('recent', AdminRecentActivityController::class)
                 ->middleware('throttle:admin-recent-read')

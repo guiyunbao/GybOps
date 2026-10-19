@@ -23,6 +23,7 @@
             'label' => __('admin.materials.title_libraries'),
             'route' => 'admin.title-libraries.index',
             'active' => $active === 'titles',
+            'guide' => 'titles-nav',
         ],
         [
             'key' => 'images',

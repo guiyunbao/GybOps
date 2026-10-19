@@ -3,6 +3,7 @@ import '../css/admin-action-dialog.css';
 import '../css/admin-url-change.css';
 import './pwa';
 import './admin/action-dialog';
+import './admin/page-guide';
 import './admin/ui-v3-shell';
 import './admin/article-batch-export';
 import { loadAiSourceProvidersIndex } from './admin/ai-source-providers-loader';
