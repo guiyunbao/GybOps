@@ -3377,7 +3377,7 @@ return array_replace_recursive($base, [
         'modal_edit' => 'Editar Modelo',
         'quick_chat' => 'Preenchimento Rápido (Chat)',
         'quick_embedding' => 'Preenchimento Rápido (Embedding)',
-        'quick_help' => 'Clique para auto-preencher configurações comuns. Gemini usa a API nativa v1beta do Google; modelos de chat e embedding seguem as regras do provedor para completar o endpoint correto. Volcengine Ark pode usar o nome do modelo ou um Endpoint ID como ep-xxxx.',
+        'quick_help' => 'Clique para auto-preencher configurações comuns. Gemini usa a API nativa v1beta do Google; modelos de chat e embedding seguem as regras do provedor para completar o endpoint correto. Volcengine Ark pode usar o nome do modelo, inclusive um modelo DeepSeek hospedado no Ark, ou um Endpoint ID como ep-xxxx, junto com a URL e a chave de API do Ark.',
         'gemini_embedding_notice' => 'Gemini Embedding 2 aplica automaticamente prefixos de consulta/documento para retrieval; este sistema não oferece suporte à configuração task_type do gemini-embedding-001.',
         'field_name' => 'Nome do Modelo *',
         'field_version' => 'Versão',
@@ -3472,7 +3472,7 @@ return array_replace_recursive($base, [
                 'reason' => 'A URL aponta para o DeepSeek, mas o ID do modelo ou a credencial segue um padrão do Ark, então o provedor rejeita a combinação.',
                 'steps' => [
                     'Para DeepSeek: use https://api.deepseek.com, ID deepseek-v4-flash e uma chave real criada no console DeepSeek.',
-                    'Para Volcengine Ark: use https://ark.cn-beijing.volces.com/api/v3, um nome de modelo ou endpoint ep-... como ID e uma chave real do Ark.',
+                    'Para Volcengine Ark: use https://ark.cn-beijing.volces.com/api/v3, um nome de modelo (incluindo um modelo DeepSeek hospedado no Ark) ou um endpoint ep-... como ID e uma chave real do Ark. Não troque a URL pela API oficial da DeepSeek.',
                     'Salve a configuração e teste novamente.',
                 ],
             ],

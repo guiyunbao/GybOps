@@ -119,6 +119,14 @@ class OpenAiRuntimeProviderTest extends TestCase
         );
     }
 
+    public function test_it_normalizes_a_volcengine_responses_endpoint_to_its_chat_base_url(): void
+    {
+        $this->assertSame(
+            'https://ark.cn-beijing.volces.com/api/v3',
+            OpenAiRuntimeProvider::resolveChatBaseUrl('https://ark.cn-beijing.volces.com/api/v3/responses')
+        );
+    }
+
     public function test_it_normalizes_gemini_base_urls_to_native_v1beta(): void
     {
         $this->assertSame(
@@ -212,6 +220,24 @@ class OpenAiRuntimeProviderTest extends TestCase
     public function test_it_resolves_chat_driver_for_volcengine(): void
     {
         $this->assertSame('openai-compatible', OpenAiRuntimeProvider::resolveChatDriver('https://ark.cn-beijing.volces.com/api/v3', 'doubao-seed-2-0-lite-260428'));
+    }
+
+    public function test_it_resolves_volcengine_deepseek_models_as_openai_compatible(): void
+    {
+        $this->assertSame(
+            'openai-compatible',
+            OpenAiRuntimeProvider::resolveChatDriver(
+                'https://ark.cn-beijing.volces.com/api/v3',
+                'deepseek-v4-1-flash-economy-261017'
+            )
+        );
+        $this->assertSame(
+            'deepseek',
+            OpenAiRuntimeProvider::resolveChatDriver(
+                'https://api.deepseek.com',
+                'deepseek-v4-1-flash-economy-261017'
+            )
+        );
     }
 
     public function test_it_resolves_chat_driver_for_aliyun(): void

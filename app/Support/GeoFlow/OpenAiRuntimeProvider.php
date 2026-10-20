@@ -26,7 +26,7 @@ final class OpenAiRuntimeProvider
         }
 
         $host = strtolower((string) (parse_url($normalized, PHP_URL_HOST) ?? ''));
-        if ($host === 'api.openai.com' && preg_match('#/responses$#', $normalized) === 1) {
+        if (($host === 'api.openai.com' || self::isVolcengineHost($host)) && preg_match('#/responses$#', $normalized) === 1) {
             $normalized = substr($normalized, 0, -strlen('/responses'));
         }
 
@@ -89,8 +89,7 @@ final class OpenAiRuntimeProvider
         $host = strtolower((string) (parse_url($normalized, PHP_URL_HOST) ?? ''));
         $model = strtolower(trim($modelId));
 
-        return ($host === 'volces.com' || str_ends_with($host, '.volces.com'))
-            && str_contains($model, 'embedding-vision');
+        return self::isVolcengineHost($host) && str_contains($model, 'embedding-vision');
     }
 
     /**
@@ -137,6 +136,10 @@ final class OpenAiRuntimeProvider
             return 'openrouter';
         }
 
+        if (self::isVolcengineHost($host)) {
+            return 'openai-compatible';
+        }
+
         if (str_contains($host, 'api.deepseek.com') || str_starts_with($model, 'deepseek')) {
             return 'deepseek';
         }
@@ -156,6 +159,16 @@ final class OpenAiRuntimeProvider
         $host = strtolower((string) (parse_url(trim($apiUrl), PHP_URL_HOST) ?? ''));
 
         return $host === 'api.openai.com' ? 'openai' : 'openai-compatible';
+    }
+
+    /**
+     * 判断主机是否属于火山方舟（volces.com 及其子域）。
+     */
+    private static function isVolcengineHost(string $host): bool
+    {
+        $host = strtolower(rtrim(trim($host), '.'));
+
+        return $host === 'volces.com' || str_ends_with($host, '.volces.com');
     }
 
     /**

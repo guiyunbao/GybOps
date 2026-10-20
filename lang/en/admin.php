@@ -2353,7 +2353,7 @@ return [
                 'reason' => 'The URL points to DeepSeek while the model ID or credential matches an Ark configuration pattern, so the provider rejects the combination.',
                 'steps' => [
                     'For DeepSeek: use https://api.deepseek.com, model ID deepseek-v4-flash, and a real API key created in the DeepSeek console.',
-                    'For Volcengine Ark: use https://ark.cn-beijing.volces.com/api/v3, a model name or ep-... inference endpoint as the model ID, and a real Ark API key.',
+                    'For Volcengine Ark: use https://ark.cn-beijing.volces.com/api/v3, a model name (including a DeepSeek model hosted on Ark) or an ep-... inference endpoint as the model ID, and a real Ark API key. Do not switch the URL to the official DeepSeek API.',
                     'Save the configuration and test again.',
                 ],
             ],
@@ -2441,7 +2441,7 @@ return [
         'modal_edit' => 'Edit AI Model',
         'quick_chat' => 'Quick Fill (Chat Models)',
         'quick_embedding' => 'Quick Fill (Embedding Models)',
-        'quick_help' => 'Click to auto-fill common provider settings. Gemini uses the native Google v1beta API; other chat models resolve chat endpoints by provider rules, and embedding models resolve /v1/embeddings or provider-specific /embeddings. Volcengine Ark can use a model name or inference endpoint ID such as ep-xxxx as the model ID.',
+        'quick_help' => 'Click to auto-fill common provider settings. Gemini uses the native Google v1beta API; other chat models resolve chat endpoints by provider rules, and embedding models resolve /v1/embeddings or provider-specific /embeddings. Volcengine Ark can use a model name, including a DeepSeek model hosted on Ark, or an inference endpoint ID such as ep-xxxx as the model ID, together with the Ark URL and Ark API key.',
         'gemini_embedding_notice' => 'Gemini Embedding 2 automatically applies retrieval query/document prefixes; this system does not support gemini-embedding-001 task_type configuration.',
         'field_name' => 'Model Name *',
         'field_version' => 'Model Version',

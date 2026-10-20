@@ -2345,7 +2345,7 @@ return [
                 'reason' => '当前地址指向 DeepSeek，但模型 ID 或凭证呈现火山方舟配置特征，服务商会拒绝这组组合。',
                 'steps' => [
                     '使用 DeepSeek：API 地址填 https://api.deepseek.com，模型 ID 填 deepseek-v4-flash，并使用 DeepSeek 控制台创建的真实 API Key。',
-                    '使用火山方舟：API 地址填 https://ark.cn-beijing.volces.com/api/v3，模型 ID 填模型名称或 ep-... 推理接入点，并使用方舟真实 API Key。',
+                    '使用火山方舟：API 地址填 https://ark.cn-beijing.volces.com/api/v3，模型 ID 填模型名称（含方舟上的 DeepSeek 模型名）或 ep-... 推理接入点，并使用方舟真实 API Key。不要改填 DeepSeek 官方地址。',
                     '保存配置后重新测试。',
                 ],
             ],
@@ -2489,7 +2489,7 @@ return [
         'modal_edit' => '编辑AI模型',
         'quick_chat' => '服务商快速填充（聊天模型）',
         'quick_embedding' => '服务商快速填充（Embedding 模型）',
-        'quick_help' => '点击自动填充常见服务商配置。Gemini 使用 Google 原生 v1beta 接口；其他聊天模型会按 provider 规则补全聊天接口，embedding 模型会补全 /v1/embeddings 或版本化 provider 的 /embeddings。火山方舟可使用模型名或推理接入点 ID（如 ep-xxxx）作为模型 ID。',
+        'quick_help' => '点击自动填充常见服务商配置。Gemini 使用 Google 原生 v1beta 接口；其他聊天模型会按 provider 规则补全聊天接口，embedding 模型会补全 /v1/embeddings 或版本化 provider 的 /embeddings。火山方舟可使用模型名（含方舟托管的 DeepSeek）或推理接入点 ID（如 ep-xxxx）作为模型 ID，并配合方舟地址与方舟 API Key。',
         'gemini_embedding_notice' => 'Gemini Embedding 2 会按检索最佳实践自动加入 query/document 前缀；本系统不支持 gemini-embedding-001 的 task_type 配置。',
         'field_name' => '模型名称 *',
         'field_version' => '模型版本',

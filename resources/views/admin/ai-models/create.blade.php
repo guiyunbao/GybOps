@@ -11,6 +11,7 @@
         ['key' => 'deepseek_v4_pro', 'label' => 'DeepSeek V4 Pro', 'name' => 'DeepSeek V4 Pro', 'version' => 'v4', 'model_id' => 'deepseek-v4-pro', 'api_url' => 'https://api.deepseek.com', 'model_type' => 'chat'],
         ['key' => 'zhipu', 'label' => 'Zhipu GLM', 'name' => '智谱 GLM-5.2', 'version' => 'v4', 'model_id' => 'glm-5.2', 'api_url' => 'https://open.bigmodel.cn/api/paas/v4', 'model_type' => 'chat'],
         ['key' => 'volcengine_ark', 'label' => 'Volcengine Ark', 'name' => '火山方舟 Chat', 'version' => 'v3', 'model_id' => '', 'api_url' => 'https://ark.cn-beijing.volces.com/api/v3', 'model_type' => 'chat'],
+        ['key' => 'volcengine_ark_deepseek', 'label' => '火山方舟 DeepSeek', 'name' => '火山方舟 DeepSeek', 'version' => 'v4', 'model_id' => 'deepseek-v4-1-flash-economy-261017', 'api_url' => 'https://ark.cn-beijing.volces.com/api/v3', 'model_type' => 'chat'],
     ];
     $embeddingPresets = [
         ['key' => 'openai_embedding', 'label' => 'OpenAI Embedding', 'name' => 'OpenAI Embedding 3 Small', 'version' => '', 'model_id' => 'text-embedding-3-small', 'api_url' => 'https://api.openai.com', 'model_type' => 'embedding'],
