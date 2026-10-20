@@ -119,4 +119,26 @@ class ArticleAiQualityScorerTest extends TestCase
         ], 85, 70);
 
     }
+
+    public function test_source_declared_unverified_is_scored_under_data_traceability(): void
+    {
+        $result = (new ArticleAiQualityScorer)->score([
+            'promotion_context' => 'informational',
+            'knowledge_coverage' => 'sufficient',
+            'issues' => [[
+                'code' => 'source_declared_unverified',
+                'severity' => 'medium',
+                'field' => 'content',
+                'quote' => '详见 https://example.com/report',
+                'knowledge_refs' => [],
+            ]],
+            'uncertainties' => [],
+        ], 85, 70);
+
+        $this->assertSame(94, $result['score']);
+        $this->assertSame(19, $result['dimension_scores']['data_traceability']);
+        $this->assertSame('source_declared_unverified', $result['issues'][0]['code']);
+        $this->assertSame(6, $result['issues'][0]['deduction']);
+        $this->assertSame('passed', $result['decision']);
+    }
 }

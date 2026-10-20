@@ -1883,7 +1883,30 @@
                 divider: @json(__('admin.article_editor.snippets.divider')),
             };
 
-            if (!textarea || !editorNode || typeof Vditor === 'undefined') {
+            if (!textarea || !editorNode) {
+                return;
+            }
+
+            const initialMarkdown = textarea.value || '';
+
+            /**
+             * Vditor 未加载或初始化失败时回退为可见的纯文本编辑，避免正文仍在隐藏域里却看起来是空白。
+             *
+             * @returns {void}
+             */
+            function revealPlaintextContentFallback() {
+                textarea.classList.remove('hidden');
+                textarea.classList.add('mt-0', 'block', 'w-full', 'rounded-md', 'border-gray-300', 'shadow-sm', 'focus:border-blue-500', 'focus:ring-blue-500', 'sm:text-sm');
+                textarea.style.minHeight = '560px';
+                textarea.setAttribute('aria-label', @json(__($i18nRoot.'.section.content_title')));
+                if (!textarea.value && initialMarkdown) {
+                    textarea.value = initialMarkdown;
+                }
+                editorNode.classList.add('hidden');
+            }
+
+            if (typeof Vditor === 'undefined') {
+                revealPlaintextContentFallback();
                 return;
             }
 
@@ -2460,62 +2483,74 @@
                 }
             }
 
-            editor = new Vditor('content-editor', {
-                value: textarea.value || '',
-                height: 560,
-                mode: 'ir',
-                cdn: @json(asset('vendor/vditor')),
-                lang: @json($vditorLang),
-                cache: {
-                    enable: false,
-                },
-                preview: {
-                    markdown: {
-                        toc: true,
+            try {
+                editor = new Vditor('content-editor', {
+                    value: initialMarkdown,
+                    height: 560,
+                    mode: 'ir',
+                    cdn: @json(asset('vendor/vditor')),
+                    lang: @json($vditorLang),
+                    cache: {
+                        enable: false,
                     },
-                    hljs: {
-                        lineNumber: false,
-                    },
-                },
-                toolbar: [
-                    'emoji', 'headings', 'bold', 'italic', 'strike', '|',
-                    'line', 'quote', 'list', 'ordered-list', 'check', '|',
-                    'code', 'inline-code', 'table', 'link', 'upload', '|',
-                    'undo', 'redo', 'fullscreen', 'preview', 'both',
-                ],
-                upload: {
-                    accept: 'image/*',
-                    multiple: false,
-                    max: 10 * 1024 * 1024,
-                    handler: async function (files) {
-                        saveEditorRange();
-                        const file = files && files.length > 0 ? files[0] : null;
-                        return openImageModal(file);
-                    },
-                },
-                input: function (value) {
-                    textarea.value = value;
-                    window.dispatchEvent(new CustomEvent('geo-article-editor-input'));
-                    window.requestAnimationFrame(saveEditorRange);
-                },
-                after: function () {
-                    textarea.value = editor.getValue();
-                    saveEditorRange();
-                    window.geoArticleEditorAssistantBridge = {
-                        getValue: getCurrentMarkdown,
-                        setValue: function (value) {
-                            const markdown = String(value || '');
-                            editor.setValue(markdown, true);
-                            textarea.value = markdown;
-                            window.dispatchEvent(new CustomEvent('geo-article-editor-input'));
+                    preview: {
+                        markdown: {
+                            toc: true,
                         },
-                        tip: showEditorTip,
-                        revealRange: revealRange,
-                    };
-                    window.dispatchEvent(new CustomEvent('geo-article-editor-ready'));
-                    window.GeoFlowAdminUi?.refreshIcons?.(editorNode);
-                },
-            });
+                        hljs: {
+                            lineNumber: false,
+                        },
+                    },
+                    toolbar: [
+                        'emoji', 'headings', 'bold', 'italic', 'strike', '|',
+                        'line', 'quote', 'list', 'ordered-list', 'check', '|',
+                        'code', 'inline-code', 'table', 'link', 'upload', '|',
+                        'undo', 'redo', 'fullscreen', 'preview', 'both',
+                    ],
+                    upload: {
+                        accept: 'image/*',
+                        multiple: false,
+                        max: 10 * 1024 * 1024,
+                        handler: async function (files) {
+                            saveEditorRange();
+                            const file = files && files.length > 0 ? files[0] : null;
+                            return openImageModal(file);
+                        },
+                    },
+                    input: function (value) {
+                        textarea.value = value;
+                        window.dispatchEvent(new CustomEvent('geo-article-editor-input'));
+                        window.requestAnimationFrame(saveEditorRange);
+                    },
+                    after: function () {
+                        const currentValue = editor.getValue();
+                        // 初始化偶发空读时，保留隐藏域中的已有正文，避免把真实内容冲掉。
+                        if (currentValue !== '' || initialMarkdown === '') {
+                            textarea.value = currentValue;
+                        } else {
+                            editor.setValue(initialMarkdown, true);
+                            textarea.value = initialMarkdown;
+                        }
+                        saveEditorRange();
+                        window.geoArticleEditorAssistantBridge = {
+                            getValue: getCurrentMarkdown,
+                            setValue: function (value) {
+                                const markdown = String(value || '');
+                                editor.setValue(markdown, true);
+                                textarea.value = markdown;
+                                window.dispatchEvent(new CustomEvent('geo-article-editor-input'));
+                            },
+                            tip: showEditorTip,
+                            revealRange: revealRange,
+                        };
+                        window.dispatchEvent(new CustomEvent('geo-article-editor-ready'));
+                        window.GeoFlowAdminUi?.refreshIcons?.(editorNode);
+                    },
+                });
+            } catch (error) {
+                console.error('Article markdown editor failed to initialize.', error);
+                revealPlaintextContentFallback();
+            }
 
             if (form) {
                 form.addEventListener('submit', function () {
