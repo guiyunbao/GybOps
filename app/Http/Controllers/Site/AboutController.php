@@ -10,7 +10,7 @@ use App\Support\Site\SiteThemeViewResolver;
 use Illuminate\View\View;
 
 /**
- * GEOFlow 项目介绍页。
+ * 站点关于页：托管站与已配置 about_content 的主站展示自定义文案，否则回退 GEOFlow 项目介绍。
  */
 class AboutController extends Controller
 {
@@ -26,14 +26,15 @@ class AboutController extends Controller
         $siteDescription = (string) ($map['site_description'] ?? config('geoflow.site_description', ''));
         $siteKeywords = (string) ($map['site_keywords'] ?? config('geoflow.site_keywords', ''));
         $isHosted = $this->currentSite->isHosted();
-        $defaultDescription = $isHosted
-            ? ($siteDescription !== '' ? $siteDescription : '关于 '.$siteTitle)
-            : 'GEOFlow 是面向生成式引擎优化的开源智能内容工程与多站点分发系统，连接知识、生成、审核、发布、分发和数据分析。';
         $aboutTitle = trim((string) ($map['about_title'] ?? ''));
         $aboutContent = trim((string) ($map['about_content'] ?? ''));
         $contactEmail = trim((string) ($map['contact_email'] ?? ''));
+        $useCustomAbout = $isHosted || $aboutContent !== '';
+        $defaultDescription = $useCustomAbout
+            ? ($siteDescription !== '' ? $siteDescription : '关于 '.$siteTitle)
+            : 'GEOFlow 是面向生成式引擎优化的开源智能内容工程与多站点分发系统，连接知识、生成、审核、发布、分发和数据分析。';
         $pageDescription = $aboutContent !== '' ? $aboutContent : $defaultDescription;
-        $view = $this->currentSite->isHosted() ? view('site.about') : null;
+        $view = $isHosted ? view('site.about') : null;
 
         $data = [
             'activeNav' => 'about',
@@ -42,7 +43,7 @@ class AboutController extends Controller
             'siteKeywords' => $siteKeywords,
             'pageTitle' => $aboutTitle !== '' ? $aboutTitle : '关于 '.$siteTitle,
             'pageDescription' => $pageDescription,
-            'pageKeywords' => $isHosted
+            'pageKeywords' => $useCustomAbout
                 ? $siteKeywords
                 : 'GEOFlow,GEO,生成式引擎优化,开源内容系统,知识库,多站点分发',
             'pageOgType' => 'website',
@@ -51,7 +52,7 @@ class AboutController extends Controller
             'aboutTitle' => $aboutTitle !== '' ? $aboutTitle : '关于 '.$siteTitle,
             'aboutContent' => $aboutContent,
             'contactEmail' => $contactEmail,
-            'isHostedAbout' => $isHosted,
+            'isHostedAbout' => $useCustomAbout,
         ];
 
         return $view ? $view->with($data) : SiteThemeViewResolver::first('about', $data);

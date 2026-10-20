@@ -7,7 +7,7 @@ use App\Models\SiteSetting;
 
 class ManagementSiteQuery
 {
-    public const PUBLIC_FIELDS = ['site_name', 'site_subtitle', 'site_description', 'site_keywords', 'copyright_info', 'filing_info', 'filing_url', 'site_logo', 'site_favicon', 'seo_title_template', 'seo_description_template', 'featured_limit', 'per_page', 'active_theme', 'home_carousel_slides', 'homepage_modules', 'homepage_style', 'article_detail_ads', 'article_detail_text_ads', 'friend_links'];
+    public const PUBLIC_FIELDS = ['site_name', 'site_subtitle', 'site_description', 'site_keywords', 'copyright_info', 'filing_info', 'filing_url', 'site_logo', 'site_favicon', 'about_title', 'about_content', 'contact_email', 'seo_title_template', 'seo_description_template', 'featured_limit', 'per_page', 'active_theme', 'home_carousel_slides', 'homepage_modules', 'homepage_style', 'article_detail_ads', 'article_detail_text_ads', 'friend_links'];
 
     /** @return array<string, mixed> */
     public function show(string $site): array

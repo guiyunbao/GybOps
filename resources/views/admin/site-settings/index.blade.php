@@ -400,6 +400,31 @@
 
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div>
+                            <label for="about_title" class="block text-sm font-medium text-gray-700 mb-2">{{ __('admin.site_settings.field_about_title') }}</label>
+                            <input id="about_title" type="text" name="about_title"
+                                   value="{{ old('about_title', $settings['about_title'] ?? '') }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="{{ __('admin.site_settings.placeholder_about_title') }}">
+                        </div>
+                        <div>
+                            <label for="contact_email" class="block text-sm font-medium text-gray-700 mb-2">{{ __('admin.site_settings.field_contact_email') }}</label>
+                            <input id="contact_email" type="email" name="contact_email"
+                                   value="{{ old('contact_email', $settings['contact_email'] ?? '') }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="contact@example.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="about_content" class="block text-sm font-medium text-gray-700 mb-2">{{ __('admin.site_settings.field_about_content') }}</label>
+                        <textarea id="about_content" name="about_content" rows="6"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                  placeholder="{{ __('admin.site_settings.placeholder_about_content') }}">{{ old('about_content', $settings['about_content'] ?? '') }}</textarea>
+                        <p class="mt-1 text-xs text-gray-500">{{ __('admin.site_settings.about_content_help') }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
                             <label for="filing_info" class="block text-sm font-medium text-gray-700 mb-2">{{ __('admin.site_settings.field_filing_info') }}</label>
                             <input id="filing_info" type="text" name="filing_info"
                                    value="{{ old('filing_info', $settings['filing_info']) }}"
