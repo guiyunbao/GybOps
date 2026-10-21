@@ -412,6 +412,7 @@ final class AdminUiRegistry
                 'admin.articles.ai-quality.status', 'admin.articles.ai-quality.optimization.candidate',
                 'admin.articles.editor.titles',
                 'admin.ai-prompts.test-options', 'admin.ai-prompts.test', 'admin.ai-prompts.tests.*',
+                'admin.ai-prompts.drafts', 'admin.ai-prompts.drafts.ai',
                 'admin.distribution.sync-settings*.preview',
                 'admin.enterprise-knowledge.status', 'admin.site-settings.theme-replications.status',
                 'admin.system-updates.runs.status', 'admin.tasks.health', 'admin.url-import.status',

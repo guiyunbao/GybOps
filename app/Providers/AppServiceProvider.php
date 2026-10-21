@@ -182,6 +182,10 @@ class AppServiceProvider extends ServiceProvider
             RateLimiter::for('prompt-test-'.$operation, fn (Request $request): Limit => Limit::perMinute($limit)
                 ->by('prompt-test-'.$operation.':admin:'.($request->user('admin')?->id ?? $request->ip())));
         }
+        foreach (['prompt-draft' => 30, 'prompt-draft-ai' => 10] as $name => $limit) {
+            RateLimiter::for($name, fn (Request $request): Limit => Limit::perMinute($limit)
+                ->by($name.':admin:'.($request->user('admin')?->id ?? $request->ip())));
+        }
 
         RateLimiter::for('admin-login', function (Request $request): Limit {
             return Limit::perMinute(30)->by('admin-login-ip:'.$request->ip());

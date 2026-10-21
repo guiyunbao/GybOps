@@ -28,6 +28,10 @@
                 </div>
             </div>
 
+            @if ($prompt->type === 'content' && blank($prompt->system_key ?? null))
+                @include('admin.ai-prompts._draft')
+            @endif
+
             @include('admin.ai-prompts._form-fields', ['mode' => 'edit'])
 
             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 sm:px-6">

@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\AiModelAccessException;
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
+use App\Models\AiModel;
 use App\Models\Prompt;
 use App\Models\Task;
+use App\Services\Admin\AdminAiModelAccessResolver;
 use App\Services\GeoFlow\ArticleAiQualityInvalidationService;
 use App\Services\GeoFlow\ArticleAiQualityPromptRenderer;
 use App\Support\AdminWeb;
@@ -27,6 +31,7 @@ class AiPromptController extends Controller
     public function __construct(
         private readonly ArticleAiQualityPromptRenderer $qualityPromptRenderer,
         private readonly ArticleAiQualityInvalidationService $qualityInvalidationService,
+        private readonly AdminAiModelAccessResolver $models,
     ) {}
 
     /**
@@ -45,19 +50,20 @@ class AiPromptController extends Controller
     /**
      * 正文提示词创建页。
      */
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('admin.ai-prompts.create', [
             'pageTitle' => __('admin.ai_prompts.modal_create'),
             'activeMenu' => 'ai_config',
             'adminSiteName' => AdminWeb::siteName(),
+            'chatModels' => $this->chatModels($request->user('admin')),
         ]);
     }
 
     /**
      * 正文提示词编辑页。
      */
-    public function edit(int $promptId): View
+    public function edit(Request $request, int $promptId): View
     {
         $prompt = Prompt::query()
             ->select(['id', 'name', 'type', 'content', 'system_key', 'system_version'])
@@ -70,6 +76,7 @@ class AiPromptController extends Controller
             'activeMenu' => 'ai_config',
             'adminSiteName' => AdminWeb::siteName(),
             'prompt' => $prompt,
+            'chatModels' => $this->chatModels($request->user('admin')),
         ]);
     }
 
@@ -236,6 +243,31 @@ class AiPromptController extends Controller
             throw ValidationException::withMessages([
                 'content' => '质检提示词包含未知变量或模板格式无效：'.$exception->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function chatModels(mixed $actor): array
+    {
+        if (! $actor instanceof Admin) {
+            return [];
+        }
+
+        try {
+            return $this->models->usableQuery($actor)
+                ->where(fn ($query) => $query->whereNull('model_type')->orWhereIn('model_type', ['', 'chat']))
+                ->orderBy('name')
+                ->orderBy('id')
+                ->get(['id', 'name'])
+                ->map(fn (AiModel $model): array => [
+                    'id' => (int) $model->id,
+                    'name' => (string) $model->name,
+                ])
+                ->all();
+        } catch (AiModelAccessException) {
+            return [];
         }
     }
 

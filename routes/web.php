@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminWelcomeController;
 use App\Http\Controllers\Admin\AiModelController;
 use App\Http\Controllers\Admin\AiPromptController;
+use App\Http\Controllers\Admin\AiPromptDraftController;
 use App\Http\Controllers\Admin\AiPromptTestController;
 use App\Http\Controllers\Admin\AiSourceProviderController;
 use App\Http\Controllers\Admin\AiSpecialPromptController;
@@ -677,6 +678,12 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::get('ai-prompts', [AiPromptController::class, 'index'])->name('ai-prompts');
             Route::get('ai-prompts/create', [AiPromptController::class, 'create'])->name('ai-prompts.create');
             Route::post('ai-prompts/create', [AiPromptController::class, 'store'])->name('ai-prompts.store');
+            Route::post('ai-prompts/drafts', [AiPromptDraftController::class, 'store'])
+                ->middleware('throttle:prompt-draft')
+                ->name('ai-prompts.drafts');
+            Route::post('ai-prompts/drafts/ai', [AiPromptDraftController::class, 'rewrite'])
+                ->middleware('throttle:prompt-draft-ai')
+                ->name('ai-prompts.drafts.ai');
             Route::get('ai-prompts/{promptId}/edit', [AiPromptController::class, 'edit'])->name('ai-prompts.edit')->whereNumber('promptId');
             Route::prefix('ai-prompts/{promptId}')->name('ai-prompts.')->whereNumber('promptId')->group(function (): void {
                 Route::get('test-options', [AiPromptTestController::class, 'options'])->middleware('throttle:prompt-test-read')->name('test-options');

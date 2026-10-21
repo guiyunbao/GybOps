@@ -15,6 +15,8 @@
         <form method="POST" action="{{ route('admin.ai-prompts.store') }}" class="overflow-hidden rounded-xl bg-white shadow">
             @csrf
 
+            @include('admin.ai-prompts._draft')
+
             @include('admin.ai-prompts._form-fields', ['mode' => 'create'])
 
             <div class="flex flex-wrap items-center justify-start gap-3 border-t border-gray-200 bg-gray-50 px-5 py-4 sm:justify-end sm:px-6">
