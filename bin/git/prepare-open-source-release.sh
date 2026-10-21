@@ -60,7 +60,7 @@ rsync -a --delete \
   --include='.env.prod.example' \
   --exclude='.env*' \
   --exclude='.phpunit.result.cache' \
-  --exclude='vendor/***' \
+  --exclude='/vendor/***' \
   --exclude='node_modules/***' \
   --exclude='public/build/***' \
   --include='storage/' \

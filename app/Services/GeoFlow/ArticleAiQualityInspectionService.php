@@ -128,6 +128,12 @@ class ArticleAiQualityInspectionService
             if ($article->isDirty()) {
                 $article->save();
             }
+            if ($aiExecutionSnapshot === null && ! $article->task_id && $auditAdminId) {
+                $executionAdmin = Admin::query()->whereKey($auditAdminId)->lockForUpdate()->first();
+                if ($executionAdmin instanceof Admin && (string) $executionAdmin->status === 'active') {
+                    $aiExecutionSnapshot = $this->articleExecutionOverride($executionAdmin, $article);
+                }
+            }
 
             $check = $this->createOrReuse(
                 $article,
@@ -233,6 +239,9 @@ class ArticleAiQualityInspectionService
                     static fn (AiModel $candidate): int => (int) $candidate->id,
                     $modelCandidates,
                 ));
+                if (! $article->task_id) {
+                    $this->rememberIndependentArticleExecutionIdentity($article, $aiExecutionSnapshot);
+                }
             }
             $articleSnapshot = $this->policyResolver->articleSnapshot($article);
             $versionSelection = $this->versionPolicy->selection((int) $article->id);
@@ -3798,7 +3807,7 @@ class ArticleAiQualityInspectionService
             ? $article->task
             : ($article->task_id ? Task::withTrashed()->find((int) $article->task_id) : null);
         if (! $task instanceof Task || $task->trashed()) {
-            return null;
+            return $this->articleExecutionSnapshot($article, $requestedModelId);
         }
         $adminId = (int) ($task->model_access_admin_id ?? 0);
         $admin = $adminId > 0 ? Admin::query()->find($adminId) : null;
@@ -3824,6 +3833,91 @@ class ArticleAiQualityInspectionService
         }
 
         return $snapshot;
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    private function articleExecutionOverride(Admin $admin, Article $article): array
+    {
+        return [
+            'model_access_admin_id' => (int) $admin->getKey(),
+            'model_access_admin_role' => $this->aiExecutionContextFactory->normalizedRole($admin),
+            'ai_config_access_version' => max(1, (int) $admin->ai_config_access_version),
+            'resolver_policy_version' => AiExecutionContext::CURRENT_RESOLVER_POLICY_VERSION,
+            'source_type' => 'article',
+            'source_id' => (int) $article->id,
+        ];
+    }
+
+    /**
+     * 无任务文章没有任务上的执行身份。优先使用已记住的管理员，否则使用质检模型的所有者。
+     *
+     * @return array<string, int|string>|null
+     */
+    private function articleExecutionSnapshot(Article $article, ?int $requestedModelId): ?array
+    {
+        $storedAdminId = (int) ($article->ai_quality_execution_admin_id ?? 0);
+        $storedRole = trim((string) ($article->ai_quality_execution_admin_role ?? ''));
+        $storedPolicyVersion = (int) ($article->ai_quality_execution_policy_version ?? 0);
+        $admin = null;
+        if ($storedAdminId > 0 && $storedRole !== '' && $storedPolicyVersion > 0) {
+            $admin = Admin::query()->find($storedAdminId);
+            if (! $admin instanceof Admin || (string) $admin->status !== 'active') {
+                return null;
+            }
+            if ($storedRole !== $this->aiExecutionContextFactory->normalizedRole($admin)
+                || $storedPolicyVersion !== AiExecutionContext::CURRENT_RESOLVER_POLICY_VERSION) {
+                if ($this->aiExecutionContextFactory->identityRequired()) {
+                    throw AiModelAccessException::configAccessRevoked($admin);
+                }
+
+                return null;
+            }
+        } else {
+            $ownerId = $requestedModelId !== null && $requestedModelId > 0
+                ? (int) (AiModel::query()->whereKey($requestedModelId)->value('owner_admin_id') ?? 0)
+                : 0;
+            $admin = $ownerId > 0 ? Admin::query()->find($ownerId) : null;
+            if (! $admin instanceof Admin || (string) $admin->status !== 'active') {
+                return null;
+            }
+            $storedAdminId = $ownerId;
+            $storedRole = $this->aiExecutionContextFactory->normalizedRole($admin);
+            $storedPolicyVersion = AiExecutionContext::CURRENT_RESOLVER_POLICY_VERSION;
+        }
+
+        return [
+            'model_access_admin_id' => $storedAdminId,
+            'model_access_admin_role' => $storedRole,
+            'ai_config_access_version' => max(1, (int) $admin->ai_config_access_version),
+            'resolver_policy_version' => $storedPolicyVersion,
+            'requested_model_id' => $requestedModelId,
+            'source_type' => 'article',
+            'source_id' => (int) $article->id,
+        ];
+    }
+
+    /** @param array<string, mixed> $snapshot */
+    private function rememberIndependentArticleExecutionIdentity(Article $article, array $snapshot): void
+    {
+        $adminId = (int) ($snapshot['model_access_admin_id'] ?? 0);
+        $role = trim((string) ($snapshot['model_access_admin_role'] ?? ''));
+        $policyVersion = (int) ($snapshot['resolver_policy_version'] ?? 0);
+        if ($adminId <= 0 || $role === '' || $policyVersion <= 0) {
+            return;
+        }
+        if ((int) $article->ai_quality_execution_admin_id === $adminId
+            && (string) $article->ai_quality_execution_admin_role === $role
+            && (int) $article->ai_quality_execution_policy_version === $policyVersion) {
+            return;
+        }
+
+        $article->forceFill([
+            'ai_quality_execution_admin_id' => $adminId,
+            'ai_quality_execution_admin_role' => $role,
+            'ai_quality_execution_policy_version' => $policyVersion,
+        ])->save();
     }
 
     private function qualityProviderUsageSession(

@@ -22,7 +22,7 @@ class OpenSourceReleaseScriptsTest extends TestCase
     {
         $script = (string) file_get_contents(base_path('bin/git/prepare-open-source-release.sh'));
 
-        foreach (['.git', 'vendor/***', 'node_modules/***', 'public/build/***', '.env*'] as $excludedPath) {
+        foreach (['.git', '/vendor/***', 'node_modules/***', 'public/build/***', '.env*'] as $excludedPath) {
             $this->assertStringContainsString("--exclude='{$excludedPath}'", $script);
         }
 
@@ -32,6 +32,74 @@ class OpenSourceReleaseScriptsTest extends TestCase
         $this->assertStringContainsString('git -C "$TARGET_ROOT" diff --cached --quiet', $script);
         $this->assertStringContainsString('Refusing to sync while the release source has local changes.', $script);
         $this->assertStringContainsString('Refusing to sync into a target with local changes.', $script);
+    }
+
+    public function test_release_sync_keeps_published_editor_assets_while_dropping_composer_vendor(): void
+    {
+        $script = (string) file_get_contents(base_path('bin/git/prepare-open-source-release.sh'));
+        preg_match_all("/--exclude='([^']*)'/", $script, $matches);
+        $editorAssets = [
+            'public/vendor/vditor/dist/index.min.js',
+            'public/vendor/cropperjs/cropper.min.js',
+        ];
+
+        foreach ($editorAssets as $path) {
+            $this->assertFalse(
+                $this->rsyncExcludes($matches[1], $path),
+                $path.' must remain in the open-source release.',
+            );
+        }
+
+        $this->assertTrue($this->rsyncExcludes($matches[1], 'vendor/composer/autoload.php'));
+    }
+
+    /**
+     * rsync 中以斜杠开头的排除规则只作用于仓库根目录；没有斜杠时，同名目录在任意层级都会被排除。
+     *
+     * @param list<string> $patterns
+     */
+    private function rsyncExcludes(array $patterns, string $path): bool
+    {
+        foreach ($patterns as $pattern) {
+            $anchored = str_starts_with($pattern, '/');
+            $expression = ltrim($pattern, '/');
+            $candidates = $anchored ? [$path] : $this->rsyncPathSuffixes($path);
+
+            foreach ($candidates as $candidate) {
+                if (str_ends_with($expression, '/***')) {
+                    $directory = substr($expression, 0, -4);
+                    if ($candidate === $directory || str_starts_with($candidate, $directory.'/')) {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                $quoted = str_replace(['\\*', '\\?'], ['.*', '.'], preg_quote($expression, '#'));
+                if (preg_match('#\\A'.$quoted.'\\z#', $candidate) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    private function rsyncPathSuffixes(string $path): array
+    {
+        $suffixes = [];
+        $remaining = $path;
+        while ($remaining !== '') {
+            $suffixes[] = $remaining;
+            $separator = strpos($remaining, '/');
+            if ($separator === false) {
+                break;
+            }
+            $remaining = substr($remaining, $separator + 1);
+        }
+
+        return $suffixes;
     }
 
     public function test_release_sync_refuses_a_staged_only_target_without_changing_it(): void

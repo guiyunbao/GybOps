@@ -72,6 +72,9 @@ class Article extends Model
         'ai_quality_retrieval_mode_override',
         'ai_quality_policy_version',
         'ai_quality_policy_snapshot',
+        'ai_quality_execution_admin_id',
+        'ai_quality_execution_admin_role',
+        'ai_quality_execution_policy_version',
         'generation_evidence_snapshot',
     ];
 
@@ -91,6 +94,8 @@ class Article extends Model
             'ai_quality_required_at_creation' => 'boolean',
             'ai_quality_policy_version' => 'integer',
             'ai_quality_policy_snapshot' => 'array',
+            'ai_quality_execution_admin_id' => 'integer',
+            'ai_quality_execution_policy_version' => 'integer',
             'generation_evidence_snapshot' => 'array',
         ];
     }

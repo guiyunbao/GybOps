@@ -348,6 +348,11 @@ final readonly class LaravelArticleAiQualityReviewer implements ProviderAttemptA
 
         $host = strtolower((string) parse_url($baseUrl, PHP_URL_HOST));
         $modelId = strtolower(trim((string) $model->model_id));
+        // 火山方舟上的 DeepSeek 兼容接口也会消耗思考预算；质检需要完整 JSON，先关闭 thinking。
+        if (($host === 'volces.com' || str_ends_with($host, '.volces.com'))
+            && str_starts_with($modelId, 'deepseek')) {
+            return ['thinking' => ['type' => 'disabled']];
+        }
         if (in_array($host, ['api.minimaxi.com', 'api.minimax.io'], true)
             && str_starts_with($modelId, 'minimax-m')) {
             return ['reasoning_split' => true];

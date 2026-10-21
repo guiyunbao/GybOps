@@ -303,6 +303,7 @@ class ArticleAiQualityProgressPresenter
             'queue_worker_unavailable',
             'queue_wait_timeout',
             'inspection_failed',
+            'ai_config_access_revoked',
             'sampling_policy_disabled',
         ];
 
@@ -335,7 +336,7 @@ class ArticleAiQualityProgressPresenter
             'input_too_large' => 'failure_title_input_too_large',
             'provider_gateway_error', 'queue_dispatch_failed' => 'failure_title_connection',
             'provider_rate_limited', 'provider_quota_exhausted', 'model_quota_exceeded', 'provider_circuit_open' => 'failure_title_capacity',
-            'provider_authentication_failed', 'model_unavailable' => 'failure_title_configuration',
+            'provider_authentication_failed', 'model_unavailable', 'ai_config_access_revoked' => 'failure_title_configuration',
             'structured_output_unsupported', 'invalid_model_output' => 'failure_title_output',
             'model_output_truncated', 'output_budget_exhausted', 'remaining_budget_insufficient' => 'failure_title_output_budget',
             'evidence_retrieval_failed' => 'failure_title_evidence',
@@ -364,11 +365,13 @@ class ArticleAiQualityProgressPresenter
             'queue_wait_timeout' => 'failure_reason_queue_wait',
             'worker_interrupted' => 'failure_reason_worker_interrupted',
             'model_unavailable' => 'failure_reason_model_unavailable',
+            'ai_config_access_revoked' => 'failure_reason_access_revoked',
             'input_changed' => 'failure_reason_input_changed',
             'sampling_policy_disabled' => 'failure_reason_sampling_disabled',
             default => 'failure_reason_generic',
         };
         $nextStepKey = match ($code) {
+            'ai_config_access_revoked' => 'failure_next_step_access_revoked',
             'provider_authentication_failed', 'model_unavailable', 'structured_output_unsupported', 'invalid_model_output' => 'failure_next_step_configuration',
             'provider_quota_exhausted', 'model_quota_exceeded' => 'failure_next_step_quota',
             'queue_worker_unavailable', 'worker_interrupted' => 'failure_next_step_worker',

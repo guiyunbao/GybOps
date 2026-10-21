@@ -2624,6 +2624,137 @@ class ArticleAiQualityInspectionServiceTest extends TestCase
         );
     }
 
+    public function test_detached_manual_inspection_freezes_the_requesting_admin_execution_identity(): void
+    {
+        $this->bindPassingReviewer();
+        $executor = $this->qualityAdmin('detached-manual-executor', 'super_admin');
+        $article = $this->createQualityFixture('detached-manual-identity', needReview: false);
+        $model = $article->task->aiModel;
+        $model->forceFill([
+            'owner_admin_id' => $executor->id,
+            'access_scope' => AiModel::ACCESS_SCOPE_USER_CONTENT,
+            'model_type' => 'chat',
+        ])->save();
+        $resolver = app(ArticleAiQualityPolicyResolver::class);
+        $snapshot = $resolver->snapshot($resolver->resolveForManualInspection($article));
+        $article->forceFill([
+            'task_id' => null,
+            'ai_quality_required_at_creation' => true,
+            'ai_quality_policy_snapshot' => $snapshot,
+            'ai_quality_execution_admin_id' => null,
+            'ai_quality_execution_admin_role' => null,
+            'ai_quality_execution_policy_version' => null,
+        ])->save();
+        $service = app(ArticleAiQualityInspectionService::class);
+
+        $check = $service->requestManualInspection(
+            $article->fresh(),
+            dispatch: false,
+            auditAdminId: (int) $executor->id,
+        );
+        $completed = $service->process($check->id);
+
+        $article->refresh();
+        $this->assertSame('completed', $completed->status);
+        $this->assertSame('passed', $completed->decision);
+        $this->assertSame($executor->id, data_get($check->execution_meta, 'ai_execution.model_access_admin_id'));
+        $this->assertSame('article', data_get($check->execution_meta, 'ai_execution.source_type'));
+        $this->assertSame($executor->id, (int) $article->ai_quality_execution_admin_id);
+        $this->assertSame('super_admin', (string) $article->ai_quality_execution_admin_role);
+        $this->assertSame(1, (int) $article->ai_quality_execution_policy_version);
+    }
+
+    public function test_detached_quality_check_uses_the_model_owner_when_the_article_has_no_task(): void
+    {
+        $this->bindPassingReviewer();
+        $owner = $this->qualityAdmin('detached-model-owner', 'super_admin');
+        $article = $this->createQualityFixture('detached-model-owner', needReview: false);
+        $model = $article->task->aiModel;
+        $model->forceFill([
+            'owner_admin_id' => $owner->id,
+            'access_scope' => AiModel::ACCESS_SCOPE_USER_CONTENT,
+            'model_type' => 'chat',
+        ])->save();
+        $resolver = app(ArticleAiQualityPolicyResolver::class);
+        $snapshot = $resolver->snapshot($resolver->resolveForManualInspection($article));
+        $article->forceFill([
+            'task_id' => null,
+            'ai_quality_required_at_creation' => true,
+            'ai_quality_policy_snapshot' => $snapshot,
+        ])->save();
+        $service = app(ArticleAiQualityInspectionService::class);
+
+        $check = $service->createOrReuse($article->fresh(), dispatch: false);
+        $completed = $service->process($check->id);
+
+        $this->assertSame('completed', $completed->status);
+        $this->assertSame($owner->id, data_get($check->execution_meta, 'ai_execution.model_access_admin_id'));
+        $this->assertSame('article', data_get($check->execution_meta, 'ai_execution.source_type'));
+        $this->assertSame($owner->id, (int) $article->fresh()->ai_quality_execution_admin_id);
+    }
+
+    public function test_detached_quality_rebinds_a_missing_snapshot_model_to_an_active_user_content_chat_model(): void
+    {
+        $owner = $this->qualityAdmin('detached-missing-model-owner', 'super_admin');
+        $article = $this->createQualityFixture('detached-missing-model', needReview: false);
+        $knowledgeBaseIds = $article->task->knowledgeBases->pluck('id')->map('intval')->all();
+        AiModel::query()
+            ->where('status', 'active')
+            ->where('access_scope', AiModel::ACCESS_SCOPE_USER_CONTENT)
+            ->where(function ($query): void {
+                $query->whereNull('model_type')
+                    ->orWhere('model_type', '')
+                    ->orWhere('model_type', 'chat');
+            })
+            ->update(['status' => 'inactive']);
+        $replacement = AiModel::query()->create([
+            'name' => 'Detached fallback chat model',
+            'version' => '1',
+            'api_key' => 'test',
+            'model_id' => 'detached-fallback-chat',
+            'api_url' => 'https://example.test',
+            'status' => 'active',
+            'model_type' => 'chat',
+            'failover_priority' => 1,
+        ]);
+        $replacement->forceFill([
+            'owner_admin_id' => $owner->id,
+            'access_scope' => AiModel::ACCESS_SCOPE_USER_CONTENT,
+        ])->save();
+        $article->forceFill([
+            'task_id' => null,
+            'ai_quality_required_at_creation' => true,
+            'ai_quality_policy_snapshot' => [
+                'required' => true,
+                'source' => 'manual_article',
+                'prompt_id' => Prompt::query()->where('system_key', 'article_quality.cn_ads_knowledge.v1')->value('id'),
+                'model_id' => 999999,
+                'model_selection_mode' => 'fixed',
+                'pass_score' => 85,
+                'manual_override_min_score' => 70,
+                'timeout_sampling_enabled' => false,
+                'manual_review_required' => true,
+                'knowledge_base_ids' => $knowledgeBaseIds,
+                'retrieval_mode' => 'knowledge_broad',
+                'retrieval_mode_explicit' => true,
+                'policy_version' => 1,
+                'config_version' => 1,
+                'publication_context' => ['publish_scope' => 'public'],
+            ],
+        ])->save();
+        $article->aiQualityKnowledgeBases()->sync(
+            collect($knowledgeBaseIds)->mapWithKeys(
+                static fn (int $id, int $index): array => [$id => ['sort_order' => $index]],
+            )->all(),
+        );
+
+        $check = app(ArticleAiQualityInspectionService::class)
+            ->requestManualInspection($article->fresh(), dispatch: false, auditAdminId: (int) $owner->id);
+
+        $this->assertSame((int) $replacement->id, (int) $check->ai_model_id);
+        $this->assertSame($owner->id, data_get($check->execution_meta, 'ai_execution.model_access_admin_id'));
+    }
+
     public function test_a_queued_manual_check_uses_its_immutable_evidence_policy_when_the_task_changes(): void
     {
         $this->bindPassingReviewer();

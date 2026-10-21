@@ -7,7 +7,8 @@
 .codex
 .cursor
 .gemini
-vendor
+# 只排除仓库根目录的 Composer 依赖。public/vendor 是编辑器静态资源，必须打进镜像。
+/vendor
 node_modules
 .env
 .env.*

@@ -37,7 +37,7 @@ class ArticleAiQualityPolicyResolver
             return ['required' => false, 'source' => 'article_snapshot'];
         }
 
-        return $this->fromIndependentArticle($article, $snapshot);
+        return $this->withExecutableChatModel($this->fromIndependentArticle($article, $snapshot));
     }
 
     /** @return array<string, mixed> */
@@ -47,10 +47,10 @@ class ArticleAiQualityPolicyResolver
         $hasActiveTask = $task instanceof Task && ! $task->trashed();
         $current = $hasActiveTask
             ? $this->resolve($article)
-            : $this->fromIndependentArticle(
+            : $this->withExecutableChatModel($this->fromIndependentArticle(
                 $article,
                 is_array($article->ai_quality_policy_snapshot) ? $article->ai_quality_policy_snapshot : [],
-            );
+            ));
         if (! $hasActiveTask) {
             try {
                 $this->assertExecutable($current);
@@ -72,20 +72,9 @@ class ArticleAiQualityPolicyResolver
         }
 
         $model = collect([$task?->qualityModel, $task?->aiModel, $current['model'] ?? null])
-            ->first(fn (mixed $candidate): bool => $candidate instanceof AiModel
-                && (string) $candidate->status === 'active'
-                && $this->isChatModel($candidate));
+            ->first(fn (mixed $candidate): bool => $this->isExecutableChatModel($candidate));
         if (! $model instanceof AiModel) {
-            $model = AiModel::query()
-                ->where('status', 'active')
-                ->where(function ($query): void {
-                    $query->whereNull('model_type')
-                        ->orWhere('model_type', '')
-                        ->orWhere('model_type', 'chat');
-                })
-                ->orderBy('failover_priority')
-                ->orderBy('id')
-                ->first();
+            $model = $this->activeUserContentChatModel();
         }
 
         $knowledgeBaseIds = collect($current['knowledge_base_ids'] ?? [])
@@ -569,6 +558,52 @@ class ArticleAiQualityPolicyResolver
     private function isChatModel(AiModel $model): bool
     {
         return in_array((string) ($model->model_type ?? ''), ['', 'chat'], true);
+    }
+
+    private function isExecutableChatModel(mixed $model): bool
+    {
+        return $model instanceof AiModel
+            && (string) $model->status === 'active'
+            && $model->archived_at === null
+            && (string) $model->access_scope === AiModel::ACCESS_SCOPE_USER_CONTENT
+            && $this->isChatModel($model);
+    }
+
+    /**
+     * 质检只能调用用户内容范围的聊天模型。系统专用模型即使优先级更高也不能接本质检。
+     */
+    private function activeUserContentChatModel(): ?AiModel
+    {
+        return AiModel::query()
+            ->where('status', 'active')
+            ->whereNull('archived_at')
+            ->where('access_scope', AiModel::ACCESS_SCOPE_USER_CONTENT)
+            ->where(function ($query): void {
+                $query->whereNull('model_type')
+                    ->orWhere('model_type', '')
+                    ->orWhere('model_type', 'chat');
+            })
+            ->orderBy('failover_priority')
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $policy
+     * @return array<string, mixed>
+     */
+    private function withExecutableChatModel(array $policy): array
+    {
+        if ($this->isExecutableChatModel($policy['model'] ?? null)) {
+            return $policy;
+        }
+
+        $fallback = $this->activeUserContentChatModel();
+        if ($fallback instanceof AiModel) {
+            $policy['model'] = $fallback;
+        }
+
+        return $policy;
     }
 
     private function sharesEndpointOrigin(AiModel $primary, AiModel $candidate): bool
