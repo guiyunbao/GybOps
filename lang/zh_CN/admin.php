@@ -85,6 +85,11 @@ return [
             'account_hint' => '管理已获得人工发布权限的 Chrome 客户端。',
         ],
     ],
+    'getting_started' => [
+        'link' => '新手帮助',
+        'back_to_login' => '返回登录',
+        'back_to_admin' => '返回后台',
+    ],
     'nav' => [
         'ai_workspace' => 'AI 工作台',
         'group_data' => '数据',

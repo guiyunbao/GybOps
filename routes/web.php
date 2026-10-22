@@ -7,6 +7,7 @@
 use App\Http\Controllers\Admin\AdminAccountController;
 use App\Http\Controllers\Admin\AdminActivityLogController;
 use App\Http\Controllers\Admin\AdminAuthController;
+use App\Http\Controllers\Admin\AdminGettingStartedController;
 use App\Http\Controllers\Admin\AdminGuideController;
 use App\Http\Controllers\Admin\AdminRecentActivityController;
 use App\Http\Controllers\Admin\AdminUserController;
@@ -133,6 +134,7 @@ $adminPrefix = trim((string) config('geoflow.admin_base_path', '/geo_admin'), '/
 Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group(function () {
     // 通用入口与语言切换
     Route::get('locale/{locale}', [AdminAuthController::class, 'switchLocale'])->name('locale.switch');
+    Route::get('getting-started', [AdminGettingStartedController::class, 'show'])->name('getting-started');
 
     Route::get('/', function () {
         return Auth::guard('admin')->check()

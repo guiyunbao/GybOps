@@ -85,6 +85,11 @@ return [
             'account_hint' => 'Manage Chrome clients authorized for publishing work.',
         ],
     ],
+    'getting_started' => [
+        'link' => 'Getting started',
+        'back_to_login' => 'Back to sign in',
+        'back_to_admin' => 'Back to admin',
+    ],
     'nav' => [
         'ai_workspace' => 'AI Workspace',
         'group_data' => 'Data',

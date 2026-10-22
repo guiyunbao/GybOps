@@ -122,8 +122,9 @@
             </button>
         </form>
     </div>
-    <div class="text-center mt-6">
-        <a href="{{ url('/') }}" class="text-gray-600 hover:text-gray-900 text-sm">{{ __('admin.login.back_home') }}</a>
+    <div class="mt-6 flex items-center justify-center gap-4 text-center">
+        <a href="{{ route('admin.getting-started') }}" class="text-sm font-medium text-blue-700 hover:text-blue-900">{{ __('admin.getting_started.link') }}</a>
+        <a href="{{ url('/') }}" class="text-sm text-gray-600 hover:text-gray-900">{{ __('admin.login.back_home') }}</a>
     </div>
 </div>
 <script>

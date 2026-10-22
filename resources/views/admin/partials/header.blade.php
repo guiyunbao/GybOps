@@ -242,6 +242,10 @@
                             <div class="text-sm text-gray-700">{{ __('admin.header.welcome', ['name' => $currentAdmin->username ?? '']) }}</div>
                             <div class="text-xs text-gray-400">{{ $adminRoleLabel }}</div>
                         </div>
+                        <a href="{{ route('admin.getting-started') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            <i data-lucide="book-open" class="w-4 h-4 inline mr-2"></i>
+                            {{ __('admin.getting_started.link') }}
+                        </a>
                         <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                             <i data-lucide="home" class="w-4 h-4 inline mr-2"></i>
                             {{ __('admin.nav.back_home') }}

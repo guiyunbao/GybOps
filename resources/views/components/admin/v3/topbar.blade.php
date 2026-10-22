@@ -98,6 +98,7 @@
             <button class="gf-user-button" type="button" aria-label="{{ __('admin.ui_v3.open_user_menu') }}" data-popover-button="user"><span class="gf-user-avatar"><i data-lucide="user"></i></span><i data-lucide="chevron-down"></i></button>
             <div class="gf-popover gf-popover--user" data-popover="user" hidden>
                 <strong>{{ $admin->name }}</strong><span>{{ $isSuperAdmin ? __('admin.header.super_admin') : __('admin.header.admin') }}</span>
+                <a href="{{ \App\Support\AdminWeb::routePath('admin.getting-started') }}">{{ __('admin.getting_started.link') }}</a>
                 <a href="{{ \App\Support\AdminWeb::routePath('admin.account.show') }}">{{ __('admin.account.page_title') }}</a>
                 <a href="{{ \App\Support\AdminWeb::routePath('admin.site-settings.index') }}">{{ __('admin.nav.site_settings') }}</a>
                 <form method="POST" action="{{ \App\Support\AdminWeb::routePath('admin.logout') }}" data-no-unsaved>@csrf<button type="submit" class="gf-popover__danger">{{ __('admin.button.logout') }}</button></form>

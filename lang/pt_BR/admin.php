@@ -81,6 +81,11 @@ return array_replace_recursive($base, [
             'account_hint' => 'Gerencie clientes Chrome autorizados para publicação.',
         ],
     ],
+    'getting_started' => [
+        'link' => 'Guia inicial',
+        'back_to_login' => 'Voltar ao login',
+        'back_to_admin' => 'Voltar ao painel',
+    ],
     'nav' => [
         'ai_workspace' => 'Espaço de trabalho de IA',
         'group_data' => 'Dados',

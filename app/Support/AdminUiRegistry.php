@@ -404,7 +404,7 @@ final class AdminUiRegistry
     {
         $classifications = [
             'redirect' => ['admin.entry', 'admin.locale.switch', 'admin.security-settings.index'],
-            'special' => ['admin.site-settings.themes.preview.frame', 'admin.site-settings.theme-packages.preview.frame', 'admin.login', 'admin.site-settings.theme-replications.preview'],
+            'special' => ['admin.site-settings.themes.preview.frame', 'admin.site-settings.theme-packages.preview.frame', 'admin.login', 'admin.getting-started', 'admin.site-settings.theme-replications.preview'],
             'download' => [
                 'admin.link-pool.dashboard.csv',
                 'admin.url-changes.download',

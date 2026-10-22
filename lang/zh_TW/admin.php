@@ -85,6 +85,11 @@ return [
             'account_hint' => '管理已獲得人工釋出權限的 Chrome 客戶端。',
         ],
     ],
+    'getting_started' => [
+        'link' => '新手幫助',
+        'back_to_login' => '返回登入',
+        'back_to_admin' => '返回後台',
+    ],
     'nav' => [
         'ai_workspace' => 'AI 工作台',
         'group_data' => '資料',
