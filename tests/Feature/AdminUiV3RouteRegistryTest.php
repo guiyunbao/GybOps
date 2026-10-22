@@ -71,12 +71,16 @@ class AdminUiV3RouteRegistryTest extends TestCase
         $navigation = $registry->aiConfiguratorNavigation($admin, 'admin.ai.configurator');
 
         $this->assertSame(
-            ['models', 'prompts', 'special', 'sources'],
+            ['models', 'prompts', 'quality_prompts', 'special', 'sources'],
             array_column($navigation, 'key'),
         );
         $this->assertSame(
-            ['admin.ai-models.index', 'admin.ai-prompts', 'admin.ai-special-prompts', 'admin.ai-source-providers.index'],
+            ['admin.ai-models.index', 'admin.ai-prompts', 'admin.ai-prompts', 'admin.ai-special-prompts', 'admin.ai-source-providers.index'],
             array_column($navigation, 'route'),
+        );
+        $this->assertSame(
+            ['type' => 'quality_check'],
+            collect($navigation)->firstWhere('key', 'quality_prompts')['parameters'],
         );
         $this->assertSame([], array_keys(array_filter(array_column($navigation, 'active', 'key'))));
 

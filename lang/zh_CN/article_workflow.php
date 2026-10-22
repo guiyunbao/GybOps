@@ -21,7 +21,7 @@ return [
         'evidence_coverage_partial' => '证据覆盖部分内容',
         'evidence_coverage_insufficient' => '证据覆盖不足',
     ],
-    'diagnostic_summary' => '检查 #:check · 模型 #:model · 召回证据 :evidence 条',
+    'diagnostic_summary' => '检查 #:check · 方案：:prompt · 模型：:model · 召回证据 :evidence 条',
     'retry_summary' => '技术故障已额外重试 :attempt / 2 次；下次尝试：:next',
     'failure_stage' => '失败阶段：:stage',
     'delivery_pending' => '发布流程已提交，远端分发正在等待补偿重试。',

@@ -406,7 +406,7 @@
                         @if (empty($qualityPrompts))
                             <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                                 {{ $t('task_create.ai_quality.no_prompt') }}
-                                <a href="{{ route('admin.ai-prompts.index') }}" class="font-semibold underline">{{ $t('task_create.ai_quality.configure_prompt') }}</a>
+                                <a href="{{ route('admin.ai-prompts', ['type' => 'quality_check']) }}" class="font-semibold underline">{{ $t('task_create.ai_quality.configure_prompt') }}</a>
                             </div>
                         @endif
 

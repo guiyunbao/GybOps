@@ -21,6 +21,7 @@ class ArticleAiQualityGate
         private readonly ArticleAiQualityInspectionService $inspectionService,
         private readonly ArticleAiQualityVersionPolicy $versionPolicy,
         private readonly ArticlePublicationEligibilityService $publicationEligibility,
+        private readonly ArticleAiQualityTechnicalSkip $technicalSkip,
     ) {}
 
     /**
@@ -308,6 +309,10 @@ class ArticleAiQualityGate
             );
         }
         if ($check->status === 'failed' || $check->decision === 'error') {
+            if ($this->technicalSkip->authorizes($check)) {
+                return $check;
+            }
+
             throw new ArticleAiQualityGateException(
                 'article_ai_quality_failed',
                 'AI 质检执行异常，文章已暂停发布，请重新质检。',

@@ -343,7 +343,11 @@ class AppServiceProvider extends ServiceProvider
                     'settings_navigation' => $registry->settingsNavigation($admin, $routeName),
                     'show_settings_navigation' => $registry->activeKey($routeName) === 'site_settings'
                         && ! request()->routeIs('admin.account.*'),
-                    'ai_configurator_navigation' => $registry->aiConfiguratorNavigation($admin, $routeName),
+                    'ai_configurator_navigation' => $registry->aiConfiguratorNavigation(
+                        $admin,
+                        $routeName,
+                        (string) ($viewData['promptCatalog'] ?? request()->query('type', '')),
+                    ),
                     'show_ai_configurator_navigation' => $registry->activeKey($routeName) === 'ai_config',
                     'site_url' => (string) config('geoflow.site_url', config('app.url')),
                 ]);

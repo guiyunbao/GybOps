@@ -21,7 +21,7 @@ return [
         'evidence_coverage_partial' => 'Partial evidence coverage',
         'evidence_coverage_insufficient' => 'Insufficient evidence coverage',
     ],
-    'diagnostic_summary' => 'Check #:check · Model #:model · :evidence evidence items',
+    'diagnostic_summary' => 'Check #:check · Prompt: :prompt · Model: :model · :evidence evidence items',
     'retry_summary' => 'Additional technical retries: :attempt / 2; next attempt: :next',
     'failure_stage' => 'Failure stage: :stage',
     'delivery_pending' => 'Publication has been submitted. Delivery handoff is waiting for retry.',

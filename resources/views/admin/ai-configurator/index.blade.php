@@ -98,6 +98,31 @@
                 <div class="p-6">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
+                            <div class="w-8 h-8 bg-blue-600 rounded-md flex items-center justify-center">
+                                <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+                            </div>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">{{ __('admin.ai_configurator.quality_title') }}</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ __('admin.ai_configurator.quality_desc') }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-3">
+                    <div class="text-sm">
+                        <a href="{{ route('admin.ai-prompts', ['type' => 'quality_check']) }}" class="font-medium text-blue-600 hover:text-blue-500">
+                            {{ __('admin.ai_configurator.quality_action') }} <span aria-hidden="true">&rarr;</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
                             <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
                                 <i data-lucide="settings" class="w-5 h-5 text-white"></i>
                             </div>

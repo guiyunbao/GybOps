@@ -1,0 +1,15 @@
+{
+  "version": "logistics-claims-1.0.0",
+  "phrases": [
+    {"phrase": "零延误", "category": "transit_promise", "suggestion": "删掉绝对准时承诺，改成知识库能够证明的时效范围。"},
+    {"phrase": "准时必达", "category": "transit_promise", "suggestion": "删掉必达承诺，改成知识库能够证明的时效范围。"},
+    {"phrase": "当天必达", "category": "transit_promise", "suggestion": "删掉必达承诺，改成知识库能够证明的时效范围。"},
+    {"phrase": "全网最低", "category": "price_promise", "suggestion": "删掉全网最低价格承诺，改成知识库中的具体报价或删除价格比较。"},
+    {"phrase": "最低价", "category": "price_promise", "suggestion": "删掉最低价承诺，改成知识库中的具体报价或删除价格比较。"},
+    {"phrase": "零货损", "category": "loss_promise", "suggestion": "删掉零货损承诺，改成知识库能够证明的货损说明。"},
+    {"phrase": "绝不破损", "category": "loss_promise", "suggestion": "删掉绝不破损承诺，改成知识库能够证明的货损说明。"},
+    {"phrase": "全网第一", "category": "ranking_superlative", "suggestion": "删掉排名第一的表述，改成可核验证据支持的具体能力。"},
+    {"phrase": "行业第一", "category": "ranking_superlative", "suggestion": "删掉行业第一的表述，改成可核验证据支持的具体能力。"},
+    {"phrase": "全国第一", "category": "ranking_superlative", "suggestion": "删掉全国第一的表述，改成可核验证据支持的具体能力。"}
+  ]
+}

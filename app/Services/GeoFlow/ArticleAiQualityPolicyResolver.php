@@ -2,6 +2,7 @@
 
 namespace App\Services\GeoFlow;
 
+use App\Exceptions\AiModelAccessException;
 use App\Models\Admin;
 use App\Models\AiModel;
 use App\Models\Article;
@@ -30,14 +31,57 @@ class ArticleAiQualityPolicyResolver
         $task = $this->taskForArticle($article);
 
         if ($task instanceof Task && ! $task->trashed()) {
-            return $this->fromTask($task, $article);
+            return $this->preferArticleQualitySelection($article, $this->fromTask($task, $article));
         }
 
         if (! $required) {
             return ['required' => false, 'source' => 'article_snapshot'];
         }
 
-        return $this->withExecutableChatModel($this->fromIndependentArticle($article, $snapshot));
+        return $this->preferArticleQualitySelection(
+            $article,
+            $this->withExecutableChatModel($this->fromIndependentArticle($article, $snapshot)),
+        );
+    }
+
+    /**
+     * 把文章页选定的质检方案和模型记到这篇文章上。空值表示回到任务默认。
+     */
+    public function storeArticleQualitySelection(
+        Article $article,
+        ?Admin $admin,
+        bool $hasPrompt,
+        ?int $promptId,
+        bool $hasModel,
+        ?int $modelId,
+    ): void {
+        $changes = [];
+        if ($hasPrompt) {
+            if ($promptId !== null) {
+                $prompt = Prompt::query()->whereKey($promptId)->where('type', 'quality_check')->first();
+                if (! $prompt instanceof Prompt) {
+                    throw new RuntimeException('ai_quality_prompt_unavailable');
+                }
+            }
+            $changes['ai_quality_prompt_id'] = $promptId;
+        }
+        if ($hasModel) {
+            if ($modelId !== null) {
+                $model = AiModel::query()->find($modelId);
+                if (! $model instanceof AiModel || ! $admin instanceof Admin || ! $this->isExecutableChatModel($model)) {
+                    throw new RuntimeException('ai_quality_model_unavailable');
+                }
+                try {
+                    $this->adminAiModelAccessResolver->assertUsable($admin, $model);
+                } catch (AiModelAccessException) {
+                    throw new RuntimeException('ai_quality_model_unavailable');
+                }
+            }
+            $changes['ai_quality_model_id'] = $modelId;
+        }
+        if ($changes !== []) {
+            $article->forceFill($changes)->save();
+        }
     }
 
     /** @return array<string, mixed> */
@@ -55,7 +99,7 @@ class ArticleAiQualityPolicyResolver
             try {
                 $this->assertExecutable($current);
 
-                return $current;
+                return $this->preferArticleQualitySelection($article, $current);
             } catch (RuntimeException) {
                 // Rebind deleted or disabled runtime dependencies while retaining the stored policy thresholds.
             }
@@ -99,7 +143,7 @@ class ArticleAiQualityPolicyResolver
             $modelSelectionMode = 'fixed';
         }
 
-        return [
+        return $this->preferArticleQualitySelection($article, [
             'required' => true,
             'source' => 'manual_article',
             'task' => $task,
@@ -123,7 +167,40 @@ class ArticleAiQualityPolicyResolver
                 'distribution_strategy' => (string) ($task?->distribution_strategy ?? data_get($current, 'publication_context.distribution_strategy', '')),
                 'advertising_label_status' => 'unknown',
             ]),
-        ];
+        ]);
+    }
+
+    /**
+     * 文章上的方案或模型覆盖优先于任务默认。不可用的覆盖不替换现有选择。
+     *
+     * @param  array<string, mixed>  $policy
+     * @return array<string, mixed>
+     */
+    private function preferArticleQualitySelection(Article $article, array $policy): array
+    {
+        if (! ($policy['required'] ?? false)) {
+            return $policy;
+        }
+
+        $promptId = (int) ($article->ai_quality_prompt_id ?? 0);
+        if ($promptId > 0) {
+            $prompt = Prompt::query()->whereKey($promptId)->where('type', 'quality_check')->first();
+            if ($prompt instanceof Prompt) {
+                $policy['prompt'] = $prompt;
+                $policy['source'] = 'article_override';
+            }
+        }
+
+        $modelId = (int) ($article->ai_quality_model_id ?? 0);
+        if ($modelId > 0) {
+            $model = AiModel::query()->find($modelId);
+            if ($this->isExecutableChatModel($model)) {
+                $policy['model'] = $model;
+                $policy['source'] = 'article_override';
+            }
+        }
+
+        return $policy;
     }
 
     /** @return array<string, mixed> */

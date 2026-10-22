@@ -11,6 +11,10 @@
     $promptContent = $normalizeScalar(old('content', $promptContentFallback), $promptContentFallback);
     $promptTypeFallback = $isCreate ? 'content' : (string) $prompt->type;
     $promptType = $normalizeScalar(old('type', $promptTypeFallback), $promptTypeFallback);
+    $forcedPromptType = $normalizeScalar($forcedPromptType ?? '', '');
+    if ($forcedPromptType === 'quality_check') {
+        $promptType = 'quality_check';
+    }
     $isSystemPrompt = ! $isCreate && filled($prompt->system_key ?? null);
 @endphp
 
@@ -21,7 +25,10 @@
                 系统内置质检方案 · v{{ $prompt->system_version ?: '1.0.0' }}。该方案保持只读，可复制内容创建自定义方案。
             </div>
         @endif
-        @if ($isCreate)
+        @if ($forcedPromptType === 'quality_check')
+            <input type="hidden" name="type" value="quality_check">
+            <p class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">{{ __('admin.ai_prompts.quality.score_note') }}</p>
+        @elseif ($isCreate)
             <div>
                 <label for="prompt_type" class="block text-sm font-semibold text-gray-800">提示词类型</label>
                 <select name="type" id="prompt_type" class="mt-2 block min-h-11 w-full rounded-lg border-gray-300 px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:border-green-500 focus:ring-green-500">
@@ -76,13 +83,16 @@
                 <i data-lucide="braces" class="h-4 w-4"></i>
             </span>
             <div class="min-w-0">
-                <h2 id="prompt-variables-title" class="text-sm font-semibold">{{ __('admin.ai_prompts.variable_title') }}</h2>
-                <p class="mt-1 break-words text-xs leading-5 text-blue-700">{{ __('admin.ai_prompts.placeholder_content') }}</p>
+                <h2 id="prompt-variables-title" class="text-sm font-semibold">{{ $promptType === 'quality_check' ? __('admin.ai_prompts.quality.variable_title') : __('admin.ai_prompts.variable_title') }}</h2>
+                @if ($promptType !== 'quality_check')
+                    <p class="mt-1 break-words text-xs leading-5 text-blue-700">{{ __('admin.ai_prompts.placeholder_content') }}</p>
+                @endif
             </div>
         </div>
 
         <div class="mt-5 space-y-3 break-words text-sm leading-6 text-blue-900">
             @if ($promptType === 'quality_check')
+                <p class="text-xs leading-5 text-blue-800">{{ __('admin.ai_prompts.quality.score_note') }}</p>
                 <div><code>&#123;&#123;article_title&#125;&#125;</code>、<code>&#123;&#123;article_content&#125;&#125;</code>、<code>&#123;&#123;article_outline&#125;&#125;</code></div>
                 <div><code>&#123;&#123;fact_candidates&#125;&#125;</code>、<code>&#123;&#123;knowledge&#125;&#125;</code>、<code>&#123;&#123;advertising_rules&#125;&#125;</code></div>
                 <div><code>&#123;&#123;publication_context&#125;&#125;</code>、<code>&#123;&#123;segment_index&#125;&#125;</code>、<code>&#123;&#123;segment_count&#125;&#125;</code></div>
@@ -93,6 +103,8 @@
             @endif
         </div>
 
-        <p class="mt-5 break-words border-t border-blue-200 pt-4 text-xs leading-6 text-blue-800">{!! __('admin.ai_prompts.variable_help') !!}</p>
+        @if ($promptType !== 'quality_check')
+            <p class="mt-5 break-words border-t border-blue-200 pt-4 text-xs leading-6 text-blue-800">{!! __('admin.ai_prompts.variable_help') !!}</p>
+        @endif
     </aside>
 </div>

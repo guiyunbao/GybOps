@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\AiModelAccessException;
 use App\Exceptions\ApiException;
 use App\Exceptions\ArticleAiQualityGateException;
 use App\Exceptions\ArticleRiskGateException;
@@ -10,6 +11,7 @@ use App\Http\Requests\Admin\ExportArticlesMarkdownRequest;
 use App\Models\Admin;
 use App\Models\AiModel;
 use App\Models\Article;
+use App\Models\ArticleAiQualityCheck;
 use App\Models\Author;
 use App\Models\Category;
 use App\Models\DistributionChannel;
@@ -27,6 +29,7 @@ use App\Services\GeoFlow\ArticleAiQualityConfigurationService;
 use App\Services\GeoFlow\ArticleAiQualityGate;
 use App\Services\GeoFlow\ArticleAiQualityInspectionService;
 use App\Services\GeoFlow\ArticleAiQualityInvalidationService;
+use App\Services\GeoFlow\ArticleAiQualityTechnicalSkip;
 use App\Services\GeoFlow\ArticleCitationMarkerCleaner;
 use App\Services\GeoFlow\ArticleGeoFlowService;
 use App\Services\GeoFlow\ArticleMarkdownExportService;
@@ -58,6 +61,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
@@ -89,6 +93,7 @@ class ArticleController extends Controller
         private readonly ArticleGeoFlowService $articleGeoFlowService,
         private readonly AdminAiModelAccessResolver $adminAiModelAccessResolver,
         private readonly SiteUrlGenerator $siteUrls,
+        private readonly ArticleAiQualityTechnicalSkip $articleAiQualityTechnicalSkip,
     ) {}
 
     /**
@@ -618,7 +623,54 @@ class ArticleController extends Controller
             'formOptions' => $this->loadFormOptions(false),
             'canCreateManualPublication' => $this->canCreateManualPublication($request),
             'aiQualityRetrieval' => $qualityRetrieval,
+            'aiQualityPromptOptions' => $this->qualityPromptOptions(),
+            'aiQualityModelOptions' => $this->qualityModelOptions($request),
+            'aiQualityPromptSelection' => (string) ($article->ai_quality_prompt_id ?: $aiQualityCheck?->prompt_id ?: $article->task?->ai_quality_prompt_id ?: ''),
+            'aiQualityModelSelection' => (string) ($article->ai_quality_model_id ?: $aiQualityCheck?->ai_model_id ?: $article->task?->ai_quality_model_id ?: $article->task?->ai_model_id ?: ''),
         ]);
+    }
+
+    /**
+     * @return list<array{id: int, name: string, system_managed: bool}>
+     */
+    private function qualityPromptOptions(): array
+    {
+        return Prompt::query()
+            ->where('type', 'quality_check')
+            ->orderBy('name')
+            ->get(['id', 'name', 'system_key'])
+            ->map(static fn (Prompt $prompt): array => [
+                'id' => (int) $prompt->id,
+                'name' => (string) $prompt->name,
+                'system_managed' => filled($prompt->system_key),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function qualityModelOptions(Request $request): array
+    {
+        $admin = $request->user('admin');
+        if (! $admin instanceof Admin) {
+            return [];
+        }
+
+        try {
+            return $this->adminAiModelAccessResolver->usableQuery($admin)
+                ->where(function ($query): void {
+                    $query->where('model_type', 'chat')->orWhere('model_type', '')->orWhereNull('model_type');
+                })
+                ->get(['id', 'name'])
+                ->map(static fn (AiModel $model): array => [
+                    'id' => (int) $model->id,
+                    'name' => (string) $model->name,
+                ])
+                ->all();
+        } catch (AiModelAccessException) {
+            return [];
+        }
     }
 
     private function canCreateManualPublication(Request $request): bool
@@ -666,11 +718,17 @@ class ArticleController extends Controller
         $article = Article::query()->with('task')->whereKey($articleId)->firstOrFail();
 
         try {
+            $selection = $this->qualitySelectionFromRequest($request);
             $this->articleAiQualityInspectionService->requestManualInspection(
                 $article,
                 trigger: 'admin_manual',
                 auditAdminId: $this->authenticatedAdminId($request),
                 rejectWhenOptimizationActive: true,
+                applyQualitySelection: $selection['apply'],
+                hasPromptSelection: $selection['has_prompt'],
+                promptId: $selection['prompt_id'],
+                hasModelSelection: $selection['has_model'],
+                modelId: $selection['model_id'],
             );
 
             return redirect()
@@ -725,6 +783,59 @@ class ArticleController extends Controller
             'ai_quality_model_unavailable' => __('admin.articles.ai_quality.manual_unavailable_model'),
             default => __('admin.articles.ai_quality.failed'),
         };
+    }
+
+    /**
+     * 对没有内容分数的技术失败记录原因后跳过本次质检。
+     */
+    public function skipAiQuality(Request $request, int $articleId): RedirectResponse
+    {
+        $validated = $request->validate([
+            'technical_skip_reason' => ['required', 'string', 'min:4', 'max:1000'],
+        ]);
+        $article = Article::query()->with('latestAiQualityCheck')->whereKey($articleId)->firstOrFail();
+        $check = $article->latestAiQualityCheck;
+        $admin = Admin::query()->find($this->authenticatedAdminId($request));
+        if (! $check instanceof ArticleAiQualityCheck || ! $admin instanceof Admin) {
+            return back()->withErrors(__('admin.articles.ai_quality.skip_unavailable'));
+        }
+
+        try {
+            $this->articleAiQualityTechnicalSkip->record(
+                $check,
+                $admin,
+                (string) $validated['technical_skip_reason'],
+            );
+        } catch (RuntimeException) {
+            return back()->withErrors(__('admin.articles.ai_quality.skip_unavailable'));
+        }
+
+        return redirect()
+            ->route('admin.articles.edit', ['articleId' => $articleId])
+            ->with('message', __('admin.articles.ai_quality.skip_success'));
+    }
+
+    /**
+     * @return array{apply: bool, has_prompt: bool, prompt_id: ?int, has_model: bool, model_id: ?int}
+     */
+    private function qualitySelectionFromRequest(Request $request): array
+    {
+        $hasPrompt = $request->exists('ai_quality_prompt_id');
+        $hasModel = $request->exists('ai_quality_model_id');
+        if ($hasPrompt || $hasModel) {
+            $request->validate([
+                'ai_quality_prompt_id' => ['nullable', 'integer', 'min:1'],
+                'ai_quality_model_id' => ['nullable', 'integer', 'min:1'],
+            ]);
+        }
+
+        return [
+            'apply' => $hasPrompt || $hasModel,
+            'has_prompt' => $hasPrompt,
+            'prompt_id' => $request->filled('ai_quality_prompt_id') ? $request->integer('ai_quality_prompt_id') : null,
+            'has_model' => $hasModel,
+            'model_id' => $request->filled('ai_quality_model_id') ? $request->integer('ai_quality_model_id') : null,
+        ];
     }
 
     /**
@@ -786,7 +897,7 @@ class ArticleController extends Controller
                 }
                 $lockedArticle = Article::query()->whereKey($article->id)->lockForUpdate()->firstOrFail();
                 if (isset($payload['workflow_version']) && (int) $payload['workflow_version'] !== (int) $lockedArticle->workflow_version) {
-                    throw new \RuntimeException('workflow_version_conflict');
+                    throw new RuntimeException('workflow_version_conflict');
                 }
                 app(UrlChangeGuard::class)->article($lockedArticle, $payload, Admin::query()->find($adminId));
                 $slug = $lockedArticle->slug;
@@ -911,7 +1022,7 @@ class ArticleController extends Controller
                     app(ArticlePublicationQualityGate::class)->check($lockedArticle, 'published_content_update', $adminId);
                     $eligibility = app(ArticlePublicationEligibilityService::class);
                     if ($eligibility->manualReviewRequired($lockedArticle) && ! $eligibility->hasCurrentApproval($lockedArticle)) {
-                        throw new \RuntimeException('新正文需要重新审核；请先保留为草稿再编辑。');
+                        throw new RuntimeException('新正文需要重新审核；请先保留为草稿再编辑。');
                     }
                 }
                 $this->hostedFingerprints->synchronizeLockedArticle($lockedArticle);
@@ -925,12 +1036,18 @@ class ArticleController extends Controller
             }
             if ($runAiQualityAfterSave) {
                 try {
+                    $selection = $this->qualitySelectionFromRequest($request);
                     $this->articleAiQualityInspectionService->requestManualInspection(
                         $article,
                         trigger: 'admin_manual',
                         auditAdminId: $adminId,
                         requestedWorkflowState: $payload['status'] === 'published' ? $workflowState : null,
                         rejectWhenOptimizationActive: true,
+                        applyQualitySelection: $selection['apply'],
+                        hasPromptSelection: $selection['has_prompt'],
+                        promptId: $selection['prompt_id'],
+                        hasModelSelection: $selection['has_model'],
+                        modelId: $selection['model_id'],
                     );
                 } catch (Throwable $exception) {
                     report($exception);
@@ -1617,7 +1734,7 @@ class ArticleController extends Controller
                 } catch (ArticleRiskGateException) {
                     $result['status'] = 'blocked';
                     $result['reason'] = 'article_risk_blocked';
-                } catch (\RuntimeException $exception) {
+                } catch (RuntimeException $exception) {
                     $reason = $exception->getMessage();
                     if ($reason === 'workflow_version_conflict') {
                         $result['status'] = 'conflict';

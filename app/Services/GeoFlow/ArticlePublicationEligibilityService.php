@@ -13,6 +13,7 @@ class ArticlePublicationEligibilityService
     public function __construct(
         private readonly ArticleAiQualityPolicyResolver $policies,
         private readonly ArticleRiskScanner $riskScanner,
+        private readonly ArticleAiQualityTechnicalSkip $technicalSkip,
     ) {}
 
     public function manualReviewRequired(Article $article): bool
@@ -168,7 +169,7 @@ class ArticlePublicationEligibilityService
                 $reasons[] = 'ai_quality_queued';
             } elseif (! $this->qualityBasisCurrent($article, $check, $policy)) {
                 $reasons[] = 'ai_quality_stale';
-            } elseif ($check->status !== 'completed') {
+            } elseif ($check->status !== 'completed' && ! $this->technicalSkip->authorizes($check)) {
                 $reasons[] = $check->status === 'failed' && data_get($check->execution_meta, 'technical_retry.next_at')
                     ? 'ai_quality_retry_waiting' : 'ai_quality_'.$check->status;
             } elseif ($check->inspection_scope === 'fallback_sampled' && ! app(ArticleAiQualityGate::class)->sampledResultCanAuthorize($check, $policy)) {

@@ -431,6 +431,10 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
                 ->name('ai-quality.workflow-retry')
                 ->whereNumber('articleId');
             Route::post('{articleId}/ai-quality/override', [ArticleController::class, 'overrideAiQuality'])->name('ai-quality.override')->whereNumber('articleId');
+            Route::post('{articleId}/ai-quality/skip', [ArticleController::class, 'skipAiQuality'])
+                ->middleware('throttle:admin-sensitive')
+                ->name('ai-quality.skip')
+                ->whereNumber('articleId');
             Route::post('{articleId}/editor/images/upload', [ArticleEditorAssetController::class, 'uploadImage'])->name('editor.images.upload')->whereNumber('articleId');
             Route::put('{articleId}', [ArticleController::class, 'update'])->name('update');
         });

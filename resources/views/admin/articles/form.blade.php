@@ -136,6 +136,16 @@
         'content_integrity' => 10,
     ];
     $aiQualityIssues = is_array($aiQualityCheck?->issues) ? $aiQualityCheck->issues : [];
+    $aiQualityIssueGuide = app(\App\Support\GeoFlow\ArticleAiQualityIssueGuide::class);
+    $aiQualityDecisionSentence = app(\App\Support\GeoFlow\ArticleAiQualityDecisionPresenter::class)->sentence($aiQualityCheck, $aiQualityEnabled);
+    $aiQualityPromptOptions = is_array($aiQualityPromptOptions ?? null) ? $aiQualityPromptOptions : [];
+    $aiQualityModelOptions = is_array($aiQualityModelOptions ?? null) ? $aiQualityModelOptions : [];
+    $aiQualityPromptSelection = (string) ($aiQualityPromptSelection ?? '');
+    $aiQualityModelSelection = (string) ($aiQualityModelSelection ?? '');
+    $aiQualitySelectedModelMissing = $aiQualityModelSelection !== '' && ! collect($aiQualityModelOptions)->contains(
+        static fn (array $option): bool => (string) ($option['id'] ?? '') === $aiQualityModelSelection,
+    );
+    $aiQualityCanSkip = $isEdit && app(\App\Services\GeoFlow\ArticleAiQualityTechnicalSkip::class)->canRequest($aiQualityCheck);
     $aiQualityAtomic = is_array(data_get($aiQualityCheck?->execution_meta, 'atomic_facts')) ? data_get($aiQualityCheck?->execution_meta, 'atomic_facts') : [];
     $aiQualityAtomicInspection = is_array($aiQualityAtomic['inspection'] ?? null) ? $aiQualityAtomic['inspection'] : [];
     $aiQualityUsage = is_array($aiQualityCheck?->usage_meta) ? $aiQualityCheck->usage_meta : [];
@@ -307,6 +317,9 @@
                                                     <span data-ai-quality-result-label>{{ $aiQualityPresentation['label'] }}</span>
                                                 </span>
                                             </div>
+                                            @if($aiQualityDecisionSentence)
+                                                <p class="mt-2 max-w-3xl text-sm font-medium leading-6 text-gray-800" data-ai-quality-decision>{{ $aiQualityDecisionSentence }}</p>
+                                            @endif
                                             <div data-ai-quality-expanded-copy>
                                                 <p class="mt-1 max-w-3xl text-sm leading-6 text-gray-600">{{ __('admin.articles.ai_quality.desc') }}</p>
                                                 @if($aiQualityCheck)
@@ -320,6 +333,38 @@
                                                         @endif
                                                     </p>
                                                 @endif
+                                                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                                    <div class="min-w-0">
+                                                        <label for="ai_quality_prompt_id" class="block text-xs font-semibold text-gray-700">{{ __('admin.articles.ai_quality.selection_prompt') }}</label>
+                                                        <select id="ai_quality_prompt_id" name="ai_quality_prompt_id" class="mt-1 block w-full min-w-0 max-w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                            <option value="">{{ __('admin.articles.ai_quality.selection_follow_task') }}</option>
+                                                            @foreach($aiQualityPromptOptions as $qualityPromptOption)
+                                                                <option value="{{ $qualityPromptOption['id'] }}" @selected($aiQualityPromptSelection === (string) $qualityPromptOption['id'])>
+                                                                    {{ $qualityPromptOption['name'] }}@if($qualityPromptOption['system_managed']) · {{ __('admin.articles.ai_quality.selection_system_prompt') }}@endif
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-0">
+                                                        <label for="ai_quality_model_id" class="block text-xs font-semibold text-gray-700">{{ __('admin.articles.ai_quality.selection_model') }}</label>
+                                                        <select id="ai_quality_model_id" name="ai_quality_model_id" class="mt-1 block w-full min-w-0 max-w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                                            <option value="">{{ __('admin.articles.ai_quality.selection_follow_task') }}</option>
+                                                            @foreach($aiQualityModelOptions as $qualityModelOption)
+                                                                <option value="{{ $qualityModelOption['id'] }}" @selected($aiQualityModelSelection === (string) $qualityModelOption['id'])>{{ $qualityModelOption['name'] }}</option>
+                                                            @endforeach
+                                                            @if($aiQualitySelectedModelMissing)
+                                                                <option value="{{ $aiQualityModelSelection }}" selected>{{ $aiQualityCheck?->aiModel->name ?? ('#'.$aiQualityModelSelection) }}</option>
+                                                            @endif
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-2 text-xs leading-5 text-gray-500">
+                                                    {{ __('admin.articles.ai_quality.selection_help') }}
+                                                    @if($aiQualityPromptSelection !== '')
+                                                        <a href="{{ route('admin.ai-prompts.edit', ['promptId' => $aiQualityPromptSelection]) }}" class="font-semibold text-blue-700 underline">{{ __('admin.articles.ai_quality.selection_view_prompt') }}</a>
+                                                    @endif
+                                                    <a href="{{ route('admin.ai-prompts', ['type' => 'quality_check']) }}" class="font-semibold text-blue-700 underline">{{ __('admin.articles.ai_quality.selection_manage_prompt') }}</a>
+                                                </p>
                                             </div>
                                             <div data-ai-quality-compact-summary hidden class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-600">
                                                 @if(in_array($aiQualityStatus, ['queued', 'running'], true))
@@ -656,13 +701,17 @@
                                         ];
                                     $aiQualityFailureCode = (string) ($aiQualityFailure['code'] ?? 'inspection_failed');
                                     $aiQualityFailureAction = match (true) {
+                                        in_array($aiQualityFailureCode, ['invalid_model_output', 'structured_output_unsupported'], true) => [
+                                            'type' => 'switch-model',
+                                            'label' => __('admin.articles.ai_quality.failure_switch_model'),
+                                            'icon' => 'refresh-cw',
+                                            'url' => null,
+                                        ],
                                         in_array($aiQualityFailureCode, [
                                             'provider_authentication_failed',
                                             'provider_quota_exhausted',
                                             'model_quota_exceeded',
                                             'model_unavailable',
-                                            'structured_output_unsupported',
-                                            'invalid_model_output',
                                         ], true) => [
                                             'type' => 'model-settings',
                                             'label' => __('admin.articles.ai_quality.failure_open_model_settings'),
@@ -697,9 +746,16 @@
                                     };
                                 @endphp
                                 <div data-ai-quality-failure class="space-y-4 px-6 py-6">
-                                    <p class="text-xs text-gray-600" data-ai-quality-diagnostics>{{ __('article_workflow.diagnostic_summary', ['check' => $aiQualityCheck->id, 'model' => $aiQualityCheck->ai_model_id, 'evidence' => data_get($aiQualityProgressData, 'diagnostics.evidence_count', 0)]) }}</p>
+                                    <p class="text-xs text-gray-600" data-ai-quality-diagnostics>{{ __('article_workflow.diagnostic_summary', ['check' => $aiQualityCheck->id, 'prompt' => $aiQualityCheck->prompt->name ?? ('#'.$aiQualityCheck->prompt_id), 'model' => $aiQualityCheck->aiModel->name ?? ('#'.$aiQualityCheck->ai_model_id), 'evidence' => data_get($aiQualityProgressData, 'diagnostics.evidence_count', 0)]) }}</p>
                                     @if(data_get($aiQualityProgressData, 'diagnostics.failure_stage'))
-                                        <p class="text-xs text-gray-600">{{ __('article_workflow.failure_stage', ['stage' => data_get($aiQualityProgressData, 'diagnostics.failure_stage')]) }}</p>
+                                        @php
+                                            $aiQualityFailureStage = (string) data_get($aiQualityProgressData, 'diagnostics.failure_stage');
+                                            $aiQualityFailureStageKey = 'admin.articles.ai_quality.failure_stage_'.$aiQualityFailureStage;
+                                            $aiQualityFailureStageLabel = \Illuminate\Support\Facades\Lang::has($aiQualityFailureStageKey)
+                                                ? __($aiQualityFailureStageKey)
+                                                : $aiQualityFailureStage;
+                                        @endphp
+                                        <p class="text-xs text-gray-600">{{ __('article_workflow.failure_stage', ['stage' => $aiQualityFailureStageLabel]) }}</p>
                                     @endif
                                     @if(data_get($aiQualityProgressData, 'technical_retry.next_at'))
                                         <p class="text-sm text-blue-700" data-ai-quality-retry>{{ __('article_workflow.retry_summary', ['attempt' => data_get($aiQualityProgressData, 'technical_retry.attempt', 0), 'next' => data_get($aiQualityProgressData, 'technical_retry.next_at')]) }}</p>
@@ -747,11 +803,13 @@
                                                 @endif
                                             </div>
                                             @if(is_array($aiQualityFailureAction))
-                                                @if($aiQualityFailureAction['type'] === 'retry')
+                                                @if(in_array($aiQualityFailureAction['type'], ['retry', 'switch-model'], true))
                                                     <button
                                                         type="submit"
-                                                        form="article-ai-quality-recheck-form"
-                                                        data-ai-quality-failure-action="retry"
+                                                        form="article-edit-form"
+                                                        name="run_ai_quality_after_save"
+                                                        value="1"
+                                                        data-ai-quality-failure-action="{{ $aiQualityFailureAction['type'] }}"
                                                         data-admin-confirm-submit
                                                         disabled
                                                         aria-disabled="true"
@@ -773,6 +831,17 @@
                                             @endif
                                         </div>
                                     </div>
+                                    @if($aiQualityCanSkip)
+                                        <div class="rounded-lg border border-amber-200 bg-amber-50 p-4" data-ai-quality-technical-skip>
+                                            <p class="text-sm font-semibold text-amber-950">{{ __('admin.articles.ai_quality.skip_title') }}</p>
+                                            <p class="mt-1 text-xs leading-5 text-amber-900">{{ __('admin.articles.ai_quality.skip_help') }}</p>
+                                            <label for="technical_skip_reason" class="mt-3 block text-xs font-semibold text-amber-950">{{ __('admin.articles.ai_quality.skip_reason') }}</label>
+                                            <textarea id="technical_skip_reason" name="technical_skip_reason" form="article-ai-quality-skip-form" required minlength="4" maxlength="1000" rows="3" class="mt-1 block w-full rounded-md border-amber-200 text-sm shadow-sm focus:border-amber-500 focus:ring-amber-500"></textarea>
+                                            <button type="submit" form="article-ai-quality-skip-form" class="mt-3 inline-flex min-h-10 items-center justify-center rounded-md bg-amber-900 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800">
+                                                {{ __('admin.articles.ai_quality.skip_action') }}
+                                            </button>
+                                        </div>
+                                    @endif
                                 </div>
                             @else
                                 <div class="space-y-5 p-6">
@@ -921,20 +990,26 @@
                                                     <details data-ai-quality-issue class="group overflow-hidden rounded-lg border {{ $severityStyle['card'] }}">
                                                         <summary
                                                             data-ai-quality-issue-summary
-                                                            class="flex min-h-14 cursor-pointer list-none items-center gap-2 px-4 py-3 transition-colors duration-150 [@media(hover:hover)]:hover:bg-white/40 active:scale-[.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 [&::-webkit-details-marker]:hidden"
+                                                            class="cursor-pointer list-none px-4 py-3 transition-colors duration-150 [@media(hover:hover)]:hover:bg-white/40 active:scale-[.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 [&::-webkit-details-marker]:hidden"
                                                         >
-                                                            <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold uppercase {{ $severityStyle['badge'] }}">{{ $severity }}</span>
-                                                            <span class="hidden max-w-48 shrink-0 truncate rounded-full bg-white px-2.5 py-1 font-mono text-xs text-gray-700 ring-1 ring-black/5 sm:inline-flex">{{ $issue['code'] ?? '' }}</span>
-                                                            <span class="hidden shrink-0 text-xs text-gray-600 lg:inline">
-                                                                {{ __('admin.articles.ai_quality.original_location', [
-                                                                    'field' => __('admin.security.field_'.($issue['field'] ?? 'content')),
-                                                                    'paragraph' => max(1, (int) ($issue['paragraph_index'] ?? 1)),
-                                                                ]) }}
+                                                            @php
+                                                                $issueGuide = $aiQualityIssueGuide->forCode((string) ($issue['code'] ?? ''));
+                                                            @endphp
+                                                            <span class="flex min-h-10 items-center gap-2">
+                                                                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-bold uppercase {{ $severityStyle['badge'] }}">{{ $severity }}</span>
+                                                                <span class="max-w-48 shrink-0 truncate rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-gray-800 ring-1 ring-black/5">{{ $issueGuide['label'] }}</span>
+                                                                <span class="hidden shrink-0 text-xs text-gray-600 lg:inline">
+                                                                    {{ __('admin.articles.ai_quality.original_location', [
+                                                                        'field' => __('admin.security.field_'.($issue['field'] ?? 'content')),
+                                                                        'paragraph' => max(1, (int) ($issue['paragraph_index'] ?? 1)),
+                                                                    ]) }}
+                                                                </span>
+                                                                <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-800" title="{{ $issue['quote'] ?? '' }}">“{{ $issue['quote'] ?? '' }}”</span>
+                                                                <span class="sr-only group-open:hidden">{{ __('admin.articles.ai_quality.issue_expand') }}</span>
+                                                                <span class="hidden group-open:inline group-open:sr-only">{{ __('admin.articles.ai_quality.issue_collapse') }}</span>
+                                                                <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-gray-500 group-open:rotate-180" aria-hidden="true"></i>
                                                             </span>
-                                                            <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-800" title="{{ $issue['quote'] ?? '' }}">“{{ $issue['quote'] ?? '' }}”</span>
-                                                            <span class="sr-only group-open:hidden">{{ __('admin.articles.ai_quality.issue_expand') }}</span>
-                                                            <span class="hidden group-open:inline group-open:sr-only">{{ __('admin.articles.ai_quality.issue_collapse') }}</span>
-                                                            <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-gray-500 group-open:rotate-180" aria-hidden="true"></i>
+                                                            <span class="mt-2 block text-xs leading-5 text-gray-700"><span class="font-semibold">{{ $issueGuide['owner'] }}：</span>{{ $issueGuide['action'] }}</span>
                                                         </summary>
 
                                                         <div data-ai-quality-issue-details class="border-t border-black/5 px-4 pb-4 pt-3">
@@ -953,13 +1028,15 @@
                                                                 </button>
                                                             </div>
                                                             <blockquote class="mt-3 rounded-md border px-3 py-2 text-sm font-medium leading-6 {{ $severityStyle['quote'] }}">“{{ $issue['quote'] ?? '' }}”</blockquote>
+                                                            <p class="mt-1 font-mono text-xs text-gray-500">{{ $issue['code'] ?? '' }}</p>
                                                             <div class="mt-3 grid gap-3 text-sm lg:grid-cols-2">
                                                                 @if(! empty($issue['reason']))
                                                                     <div><span class="font-semibold text-gray-900">{{ __('admin.articles.ai_quality.reason') }}：</span><span class="text-gray-700">{{ $issue['reason'] }}</span></div>
                                                                 @endif
                                                                 @if(! empty($issue['suggestion']))
-                                                                    <div><span class="font-semibold text-gray-900">{{ __('admin.articles.ai_quality.suggestion') }}：</span><span class="text-gray-700">{{ $issue['suggestion'] }}</span></div>
+                                                                    <div class="lg:col-span-2"><span class="font-semibold text-gray-900">{{ __('admin.articles.ai_quality.suggestion') }}：</span><span class="text-gray-700">{{ $issue['suggestion'] }}</span></div>
                                                                 @endif
+                                                                <div class="lg:col-span-2"><span class="font-semibold text-gray-900">{{ $issueGuide['owner'] }}：</span><span class="text-gray-700">{{ $issueGuide['action'] }}</span></div>
                                                                 @if(! empty($issue['article_claim']))
                                                                     <div><span class="font-semibold text-gray-900">{{ __('admin.articles.ai_quality.article_claim') }}：</span><span class="text-gray-700">{{ $issue['article_claim'] }}</span></div>
                                                                 @endif
@@ -1070,14 +1147,16 @@
                                                                         (array) ($historyIssue['knowledge_refs'] ?? []),
                                                                         (array) ($historyIssue['legal_refs'] ?? []),
                                                                     )));
+                                                                    $historyGuide = $aiQualityIssueGuide->forCode((string) ($historyIssue['code'] ?? ''));
                                                                 @endphp
                                                                 <details data-ai-quality-history-issue class="group overflow-hidden rounded-lg border {{ $historyStyle }}">
                                                                     <summary
                                                                         data-ai-quality-issue-summary
-                                                                        class="flex min-h-12 cursor-pointer list-none items-center gap-2 px-3 py-2.5 transition-colors duration-150 [@media(hover:hover)]:hover:bg-white/40 active:scale-[.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 [&::-webkit-details-marker]:hidden"
+                                                                        class="cursor-pointer list-none px-3 py-2.5 transition-colors duration-150 [@media(hover:hover)]:hover:bg-white/40 active:scale-[.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 [&::-webkit-details-marker]:hidden"
                                                                     >
+                                                                        <span class="flex min-h-10 items-center gap-2">
                                                                         <span class="shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-xs font-bold uppercase ring-1 ring-black/5">{{ $historySeverity }}</span>
-                                                                        <span class="hidden max-w-48 shrink-0 truncate font-mono text-xs sm:inline">{{ $historyIssue['code'] ?? '' }}</span>
+                                                                        <span class="max-w-48 shrink-0 truncate rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gray-800 ring-1 ring-black/5">{{ $historyGuide['label'] }}</span>
                                                                         <span class="hidden shrink-0 text-xs lg:inline">{{ __('admin.articles.ai_quality.original_location', [
                                                                             'field' => __('admin.security.field_'.$historyField),
                                                                             'paragraph' => max(1, (int) ($historyIssue['paragraph_index'] ?? 1)),
@@ -1086,6 +1165,8 @@
                                                                         <span class="sr-only group-open:hidden">{{ __('admin.articles.ai_quality.issue_expand') }}</span>
                                                                         <span class="hidden group-open:inline group-open:sr-only">{{ __('admin.articles.ai_quality.issue_collapse') }}</span>
                                                                         <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 opacity-60 group-open:rotate-180" aria-hidden="true"></i>
+                                                                        </span>
+                                                                        <span class="mt-1.5 block text-xs leading-5"><span class="font-semibold">{{ $historyGuide['owner'] }}：</span>{{ $historyGuide['action'] }}</span>
                                                                     </summary>
                                                                     <div data-ai-quality-issue-details class="border-t border-black/5 px-3 pb-3 pt-2.5">
                                                                         <blockquote class="rounded-md bg-white/70 px-3 py-2 text-sm font-medium leading-6 ring-1 ring-black/5">“{{ $historyIssue['quote'] ?? '' }}”</blockquote>
@@ -1095,13 +1176,15 @@
                                                                                 {{ $historyContext }}
                                                                             </div>
                                                                         @endif
+                                                                        <p class="mt-2 font-mono text-xs text-gray-500">{{ $historyIssue['code'] ?? '' }}</p>
                                                                         <div class="mt-2 grid gap-2 text-sm lg:grid-cols-2">
                                                                             @if(! empty($historyIssue['reason']))
                                                                                 <p><span class="font-semibold">{{ __('admin.articles.ai_quality.reason') }}：</span>{{ $historyIssue['reason'] }}</p>
                                                                             @endif
                                                                             @if(! empty($historyIssue['suggestion']))
-                                                                                <p><span class="font-semibold">{{ __('admin.articles.ai_quality.suggestion') }}：</span>{{ $historyIssue['suggestion'] }}</p>
+                                                                                <p class="lg:col-span-2"><span class="font-semibold">{{ __('admin.articles.ai_quality.suggestion') }}：</span>{{ $historyIssue['suggestion'] }}</p>
                                                                             @endif
+                                                                            <p class="lg:col-span-2"><span class="font-semibold">{{ $historyGuide['owner'] }}：</span>{{ $historyGuide['action'] }}</p>
                                                                         </div>
                                                                         @if(! empty($historyRefs))
                                                                             <p class="mt-2 text-xs"><span class="font-semibold">{{ __('admin.articles.ai_quality.references') }}：</span>{{ implode(' · ', $historyRefs) }}</p>
@@ -1670,6 +1753,9 @@
                 @csrf
             </form>
             <form id="article-ai-quality-override-form" method="POST" action="{{ route('admin.articles.ai-quality.override', ['articleId' => (int) $articleId]) }}" class="hidden" data-admin-confirm-form data-admin-confirm-tone="warning" data-admin-confirm-title="{{ __('admin.action_dialog.article_ai_quality.override_title') }}" data-admin-confirm-message="{{ __('admin.action_dialog.article_ai_quality.override_message') }}" data-admin-confirm-guidance="{{ __('admin.action_dialog.article_ai_quality.override_guidance') }}" data-admin-confirm-label="{{ __('admin.action_dialog.article_ai_quality.override_label') }}">
+                @csrf
+            </form>
+            <form id="article-ai-quality-skip-form" method="POST" action="{{ route('admin.articles.ai-quality.skip', ['articleId' => (int) $articleId]) }}" class="hidden">
                 @csrf
             </form>
         @endif

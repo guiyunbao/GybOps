@@ -724,6 +724,7 @@ class ArticleAiQualityInspectionServiceTest extends TestCase
         $this->assertSame('failed', $failed->status);
         $this->assertSame('invalid_model_output', $failed->error_code);
         $this->assertSame('invalid_model_output', data_get($failed->execution_meta, 'failure.code'));
+        $this->assertSame('ai_quality_issue_value_invalid', data_get($failed->execution_meta, 'failure.validation_code'));
         $this->assertFalse((bool) data_get($failed->execution_meta, 'failure.retryable'));
         $this->assertNull($failed->score);
     }

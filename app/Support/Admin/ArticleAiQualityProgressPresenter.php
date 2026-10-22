@@ -4,6 +4,7 @@ namespace App\Support\Admin;
 
 use App\Models\ArticleAiQualityCheck;
 use App\Services\GeoFlow\ArticleAiQualityWorkerLiveness;
+use Illuminate\Support\Facades\Lang;
 
 class ArticleAiQualityProgressPresenter
 {
@@ -372,7 +373,8 @@ class ArticleAiQualityProgressPresenter
         };
         $nextStepKey = match ($code) {
             'ai_config_access_revoked' => 'failure_next_step_access_revoked',
-            'provider_authentication_failed', 'model_unavailable', 'structured_output_unsupported', 'invalid_model_output' => 'failure_next_step_configuration',
+            'provider_authentication_failed', 'model_unavailable' => 'failure_next_step_configuration',
+            'structured_output_unsupported', 'invalid_model_output' => 'failure_next_step_invalid_output',
             'provider_quota_exhausted', 'model_quota_exceeded' => 'failure_next_step_quota',
             'queue_worker_unavailable', 'worker_interrupted' => 'failure_next_step_worker',
             'evidence_retrieval_failed' => 'failure_next_step_evidence',
@@ -385,10 +387,7 @@ class ArticleAiQualityProgressPresenter
         return [
             'code' => $code,
             'title' => __('admin.articles.ai_quality.'.$titleKey),
-            'reason' => __('admin.articles.ai_quality.'.$reasonKey, [
-                'seconds' => max(0, $attemptSeconds),
-                'deadline' => $this->deadlineSeconds($executionMeta),
-            ]),
+            'reason' => $this->failureReason($code, $reasonKey, $executionMeta, max(0, $attemptSeconds)),
             'next_step' => __('admin.articles.ai_quality.'.$nextStepKey),
             'retryable' => $retryable,
             'model_attempt_seconds' => max(0, $attemptSeconds),
@@ -407,9 +406,9 @@ class ArticleAiQualityProgressPresenter
             'provider_authentication_failed',
             'provider_quota_exhausted',
             'model_quota_exceeded',
-            'model_unavailable',
+            'model_unavailable' => 'configure_model',
             'structured_output_unsupported',
-            'invalid_model_output' => 'configure_model',
+            'invalid_model_output' => 'switch_model',
             'evidence_retrieval_failed' => 'review_knowledge',
             'input_too_large', 'input_changed' => 'edit_article',
             'sampling_policy_disabled' => 'review_task_policy',
@@ -417,6 +416,28 @@ class ArticleAiQualityProgressPresenter
         };
 
         return $action ?? ($retryable ? 'retry' : 'contact_admin');
+    }
+
+    /** @param  array<string, mixed>  $executionMeta */
+    private function failureReason(string $code, string $reasonKey, array $executionMeta, int $attemptSeconds): string
+    {
+        $validationCode = trim((string) data_get($executionMeta, 'failure.validation_code', ''));
+        if ($code === 'invalid_model_output' && $validationCode !== '') {
+            $specificKey = 'admin.articles.ai_quality.validation_'.$validationCode;
+            if (str_ends_with($validationCode, '_missing_field')) {
+                $specificKey = 'admin.articles.ai_quality.validation_missing_field';
+            } elseif (str_ends_with($validationCode, '_unknown_field')) {
+                $specificKey = 'admin.articles.ai_quality.validation_unknown_field';
+            }
+            if (Lang::has($specificKey)) {
+                return __($specificKey);
+            }
+        }
+
+        return __('admin.articles.ai_quality.'.$reasonKey, [
+            'seconds' => $attemptSeconds,
+            'deadline' => $this->deadlineSeconds($executionMeta),
+        ]);
     }
 
     /** @param array<string,mixed> $executionMeta */

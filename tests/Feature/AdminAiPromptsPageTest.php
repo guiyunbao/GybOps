@@ -261,7 +261,7 @@ class AdminAiPromptsPageTest extends TestCase
                 'type' => 'quality_check',
                 'content' => '检查 {{article_title}}、{{article_content}} 与 {{knowledge}}，输出结构化问题。',
             ])
-            ->assertRedirect(route('admin.ai-prompts'));
+            ->assertRedirect(route('admin.ai-prompts', ['type' => 'quality_check']));
 
         $this->assertDatabaseHas(Prompt::class, [
             'name' => '数据一致性质检',
@@ -304,5 +304,49 @@ class AdminAiPromptsPageTest extends TestCase
         $response->assertRedirect(route('admin.ai-prompts.edit', ['promptId' => $copy->id]));
         $this->assertSame($systemPrompt->content, $copy->content);
         $this->assertStringContainsString('副本', $copy->name);
+    }
+
+    public function test_quality_plan_catalog_is_separate_from_content_prompts(): void
+    {
+        $admin = Admin::query()->create([
+            'username' => 'quality_catalog_admin',
+            'password' => 'secret-123',
+            'email' => 'quality-catalog-admin@example.com',
+            'display_name' => 'Quality Catalog Admin',
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+        $systemPrompt = Prompt::query()->whereNotNull('system_key')->firstOrFail();
+        $snippet = mb_substr((string) $systemPrompt->content, 0, 40, 'UTF-8');
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.ai-prompts', ['type' => 'quality_check']))
+            ->assertOk()
+            ->assertSee(__('admin.ai_prompts.quality.heading'))
+            ->assertSee($systemPrompt->name)
+            ->assertSee(__('admin.ai_prompts.quality.view'))
+            ->assertSee(__('admin.ai_prompts.quality.copy'))
+            ->assertDontSee('GEO营销学·信任型正文生成');
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.ai-prompts'))
+            ->assertOk()
+            ->assertSee('GEO营销学·信任型正文生成')
+            ->assertDontSee($systemPrompt->name);
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.ai-prompts.edit', ['promptId' => $systemPrompt->id]))
+            ->assertOk()
+            ->assertSee($snippet, false)
+            ->assertSee(__('admin.ai_prompts.quality.score_note'))
+            ->assertSee(__('admin.ai_prompts.quality.copy'))
+            ->assertDontSee('data-lucide="save"', false);
+
+        $this->actingAs($admin, 'admin')
+            ->get(route('admin.ai-prompts.create', ['type' => 'quality_check']))
+            ->assertOk()
+            ->assertSee(__('admin.ai_prompts.quality.create_title'))
+            ->assertSee('name="type" value="quality_check"', false)
+            ->assertDontSee('data-draft-url', false);
     }
 }

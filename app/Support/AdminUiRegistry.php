@@ -93,12 +93,13 @@ final class AdminUiRegistry
         ];
     }
 
-    /** @return list<array{key:string,label_key:string,route:string,patterns:list<string>,protected:bool}> */
+    /** @return list<array{key:string,label_key:string,route:string,parameters?:array<string,string>,patterns:list<string>,protected:bool}> */
     private function aiConfiguratorSections(): array
     {
         return [
             ['key' => 'models', 'label_key' => 'admin.ai_configurator.models_title', 'route' => 'admin.ai-models.index', 'patterns' => ['admin.ai-models.*'], 'protected' => false],
             ['key' => 'prompts', 'label_key' => 'admin.ai_configurator.prompts_title', 'route' => 'admin.ai-prompts', 'patterns' => ['admin.ai-prompts', 'admin.ai-prompts.*'], 'protected' => false],
+            ['key' => 'quality_prompts', 'label_key' => 'admin.ai_configurator.quality_title', 'route' => 'admin.ai-prompts', 'parameters' => ['type' => 'quality_check'], 'patterns' => ['admin.ai-prompts', 'admin.ai-prompts.*'], 'protected' => false],
             ['key' => 'special', 'label_key' => 'admin.ai_configurator.special_title', 'route' => 'admin.ai-special-prompts', 'patterns' => ['admin.ai-special-prompts', 'admin.ai-special-prompts.*'], 'protected' => false],
             ['key' => 'sources', 'label_key' => 'admin.ai_configurator.search_title', 'route' => 'admin.ai-source-providers.index', 'patterns' => ['admin.ai-source-providers.*'], 'protected' => true],
         ];
@@ -353,19 +354,31 @@ final class AdminUiRegistry
             ->all();
     }
 
-    /** @return list<array{key:string,label:string,route:string,active:bool}> */
-    public function aiConfiguratorNavigation(Admin $admin, ?string $routeName): array
+    /** @return list<array{key:string,label:string,route:string,parameters:array<string,string>,active:bool}> */
+    public function aiConfiguratorNavigation(Admin $admin, ?string $routeName, ?string $promptCatalog = null): array
     {
         $routeName = (string) $routeName;
+        $promptCatalog = $promptCatalog === 'quality_check' ? 'quality_check' : 'content';
 
         return collect($this->aiConfiguratorSections())
             ->filter(fn (array $item): bool => ! $item['protected'] || $admin->canManageProtectedWorkflows())
-            ->map(static fn (array $item): array => [
-                'key' => $item['key'],
-                'label' => __($item['label_key']),
-                'route' => $item['route'],
-                'active' => Str::is($item['patterns'], $routeName),
-            ])
+            ->map(function (array $item) use ($routeName, $promptCatalog): array {
+                $active = Str::is($item['patterns'], $routeName);
+                if ($item['key'] === 'prompts') {
+                    $active = $active && $promptCatalog !== 'quality_check';
+                }
+                if ($item['key'] === 'quality_prompts') {
+                    $active = $active && $promptCatalog === 'quality_check';
+                }
+
+                return [
+                    'key' => $item['key'],
+                    'label' => __($item['label_key']),
+                    'route' => $item['route'],
+                    'parameters' => $item['parameters'] ?? [],
+                    'active' => $active,
+                ];
+            })
             ->values()
             ->all();
     }
@@ -410,6 +423,7 @@ final class AdminUiRegistry
                 'admin.url-changes.status', 'admin.url-changes.articles',
                 'admin.recent.index',
                 'admin.articles.ai-quality.status', 'admin.articles.ai-quality.optimization.candidate',
+                'admin.articles.ai-quality.skip',
                 'admin.articles.editor.titles',
                 'admin.ai-prompts.test-options', 'admin.ai-prompts.test', 'admin.ai-prompts.tests.*',
                 'admin.ai-prompts.drafts', 'admin.ai-prompts.drafts.ai',

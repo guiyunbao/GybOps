@@ -16,6 +16,7 @@
         'updates' => 'bg-amber-500',
         'models' => 'bg-blue-600',
         'prompts' => 'bg-emerald-500',
+        'quality_prompts' => 'bg-blue-600',
         'special' => 'bg-violet-500',
         'sources' => 'bg-cyan-500',
         'task-list' => 'bg-blue-600',

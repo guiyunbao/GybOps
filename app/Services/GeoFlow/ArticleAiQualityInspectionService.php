@@ -67,6 +67,7 @@ class ArticleAiQualityInspectionService
         private readonly ArticleAiQualityExecutionBoundaryHook $executionBoundaryHook,
         private readonly AiModelUsageAttemptFactory $usageAttempts,
         private readonly ArticlePublicationEligibilityService $publicationEligibility,
+        private readonly ArticleLogisticsClaimScanner $logisticsClaimScanner,
     ) {}
 
     public function requestManualInspection(
@@ -80,8 +81,13 @@ class ArticleAiQualityInspectionService
         bool $rejectWhenOptimizationActive = false,
         ?int $expectedPolicyVersion = null,
         ?array $aiExecutionSnapshot = null,
+        bool $applyQualitySelection = false,
+        bool $hasPromptSelection = false,
+        ?int $promptId = null,
+        bool $hasModelSelection = false,
+        ?int $modelId = null,
     ): ArticleAiQualityCheck {
-        return DB::transaction(function () use ($article, $trigger, $dispatch, $auditAdminId, $apiTokenId, $requestedWorkflowState, $allowSampling, $rejectWhenOptimizationActive, $expectedPolicyVersion, $aiExecutionSnapshot): ArticleAiQualityCheck {
+        return DB::transaction(function () use ($article, $trigger, $dispatch, $auditAdminId, $apiTokenId, $requestedWorkflowState, $allowSampling, $rejectWhenOptimizationActive, $expectedPolicyVersion, $aiExecutionSnapshot, $applyQualitySelection, $hasPromptSelection, $promptId, $hasModelSelection, $modelId): ArticleAiQualityCheck {
             $article = $this->lockWorkflowArticle((int) $article->id);
             if (! $article) {
                 throw new RuntimeException('article_unavailable');
@@ -106,6 +112,16 @@ class ArticleAiQualityInspectionService
                 throw new ArticleAiOptimizationException(
                     'article_ai_optimization_recheck_conflict',
                     httpStatus: 409,
+                );
+            }
+            if ($applyQualitySelection) {
+                $this->policyResolver->storeArticleQualitySelection(
+                    $article,
+                    $auditAdminId === null ? null : Admin::query()->whereKey($auditAdminId)->first(),
+                    $hasPromptSelection,
+                    $promptId,
+                    $hasModelSelection,
+                    $modelId,
                 );
             }
             $policy = $this->policyResolver->resolveForManualInspection($article);
@@ -1275,6 +1291,8 @@ class ArticleAiQualityInspectionService
             $aggregate['uncertainties'] = array_values(array_merge($aggregate['uncertainties'], (array) data_get($atomicFacts, 'inspection.uncertainties', [])));
         }
         $executionMeta['atomic_facts'] = $atomicFacts;
+        $aggregate = $this->mergeLogisticsClaims($aggregate, $articleSnapshot);
+        $executionMeta['claim_scan'] = $aggregate['logistics_claim_scan'] ?? [];
         $usage = $this->withRetrievalUsageBreakdown($usage, $atomicFacts);
         $scoringStartedAt = hrtime(true);
         $score = (string) $check->scoring_version === 'v2'
@@ -1878,6 +1896,8 @@ class ArticleAiQualityInspectionService
                 'references_valid' => true,
             ];
         }
+        $aggregate = $this->mergeLogisticsClaims($aggregate, $articleSnapshot);
+        $executionMeta['claim_scan'] = $aggregate['logistics_claim_scan'] ?? [];
 
         $score = (string) $check->scoring_version === 'v2'
             ? $this->scorerV2->score($aggregate, (int) $check->pass_score, (int) $check->manual_override_min_score)
@@ -4082,6 +4102,47 @@ class ArticleAiQualityInspectionService
                 ? $httpStatus
                 : null,
             'provider_code' => $providerCode,
+            'validation_code' => $this->validationCode($exception),
         ];
+    }
+
+    /**
+     * 把物流绝对化词表命中并进已有问题，相同原文不重复添加。
+     *
+     * @param  array<string, mixed>  $aggregate
+     * @param  array<string, mixed>  $articleSnapshot
+     * @return array<string, mixed>
+     */
+    private function mergeLogisticsClaims(array $aggregate, array $articleSnapshot): array
+    {
+        $existing = array_values(array_filter(
+            is_array($aggregate['issues'] ?? null) ? $aggregate['issues'] : [],
+            'is_array',
+        ));
+        $found = $this->logisticsClaimScanner->issues($articleSnapshot, $existing);
+        $aggregate['issues'] = array_values(array_merge($existing, $found));
+        $aggregate['logistics_claim_scan'] = [
+            'version' => $this->logisticsClaimScanner->version(),
+            'match_count' => count($found),
+        ];
+
+        return $aggregate;
+    }
+
+    private function validationCode(Throwable $exception): ?string
+    {
+        $current = $exception;
+        while ($current instanceof Throwable) {
+            $message = $current->getMessage();
+            if (preg_match('/\Aai_quality_[a-z0-9_]{1,80}\z/', $message) === 1
+                && (str_contains($message, '_invalid')
+                    || str_contains($message, '_missing_field')
+                    || str_contains($message, '_unknown_field'))) {
+                return $message;
+            }
+            $current = $current->getPrevious();
+        }
+
+        return null;
     }
 }

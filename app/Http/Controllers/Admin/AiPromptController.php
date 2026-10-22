@@ -35,28 +35,34 @@ class AiPromptController extends Controller
     ) {}
 
     /**
-     * 正文提示词列表页。
+     * 正文提示词或质检方案列表。
      */
-    public function index(): View
+    public function index(Request $request): View
     {
+        $catalog = $this->promptCatalog($request->query('type'));
+
         return view('admin.ai-prompts.index', [
-            'pageTitle' => __('admin.ai_prompts.page_title'),
+            'pageTitle' => __($catalog === 'quality_check' ? 'admin.ai_prompts.quality.page_title' : 'admin.ai_prompts.page_title'),
             'activeMenu' => 'ai_config',
             'adminSiteName' => AdminWeb::siteName(),
-            'prompts' => $this->loadPrompts(),
+            'prompts' => $this->loadPrompts($catalog),
+            'promptCatalog' => $catalog,
         ]);
     }
 
     /**
-     * 正文提示词创建页。
+     * 正文提示词或质检方案创建页。
      */
     public function create(Request $request): View
     {
+        $catalog = $this->promptCatalog($request->query('type'));
+
         return view('admin.ai-prompts.create', [
-            'pageTitle' => __('admin.ai_prompts.modal_create'),
+            'pageTitle' => __($catalog === 'quality_check' ? 'admin.ai_prompts.quality.create_title' : 'admin.ai_prompts.modal_create'),
             'activeMenu' => 'ai_config',
             'adminSiteName' => AdminWeb::siteName(),
             'chatModels' => $this->chatModels($request->user('admin')),
+            'promptCatalog' => $catalog,
         ]);
     }
 
@@ -71,12 +77,17 @@ class AiPromptController extends Controller
             ->whereIn('type', ['content', 'quality_check'])
             ->firstOrFail();
 
+        $catalog = $prompt->type === 'quality_check' ? 'quality_check' : 'content';
+
         return view('admin.ai-prompts.edit', [
-            'pageTitle' => __('admin.ai_prompts.modal_edit'),
+            'pageTitle' => __($catalog === 'quality_check'
+                ? (filled($prompt->system_key) ? 'admin.ai_prompts.quality.view_title' : 'admin.ai_prompts.quality.edit_title')
+                : 'admin.ai_prompts.modal_edit'),
             'activeMenu' => 'ai_config',
             'adminSiteName' => AdminWeb::siteName(),
             'prompt' => $prompt,
             'chatModels' => $this->chatModels($request->user('admin')),
+            'promptCatalog' => $catalog,
         ]);
     }
 
@@ -109,7 +120,9 @@ class AiPromptController extends Controller
                 : '',
         ]);
 
-        return redirect()->route('admin.ai-prompts')->with('message', __('admin.ai_prompts.message.create_success'));
+        return redirect()
+            ->route('admin.ai-prompts', $type === 'quality_check' ? ['type' => 'quality_check'] : [])
+            ->with('message', __('admin.ai_prompts.message.create_success'));
     }
 
     /**
@@ -148,7 +161,9 @@ class AiPromptController extends Controller
             $this->qualityInvalidationService->invalidatePrompt((int) $prompt->id, 'AI 质检方案已更新');
         }
 
-        return redirect()->route('admin.ai-prompts')->with('message', __('admin.ai_prompts.message.update_success'));
+        return redirect()
+            ->route('admin.ai-prompts', $prompt->type === 'quality_check' ? ['type' => 'quality_check'] : [])
+            ->with('message', __('admin.ai_prompts.message.update_success'));
     }
 
     public function copy(int $promptId): RedirectResponse
@@ -194,7 +209,9 @@ class AiPromptController extends Controller
 
         $prompt->delete();
 
-        return redirect()->route('admin.ai-prompts')->with('message', __('admin.ai_prompts.message.delete_success'));
+        return redirect()
+            ->route('admin.ai-prompts', $prompt->type === 'quality_check' ? ['type' => 'quality_check'] : [])
+            ->with('message', __('admin.ai_prompts.message.delete_success'));
     }
 
     /**
@@ -206,11 +223,11 @@ class AiPromptController extends Controller
      *   created_at:?string
      * }>
      */
-    private function loadPrompts(): array
+    private function loadPrompts(string $catalog): array
     {
         return Prompt::query()
             ->select(['id', 'name', 'type', 'content', 'system_key', 'system_version', 'created_at'])
-            ->whereIn('type', ['content', 'quality_check'])
+            ->where('type', $catalog)
             ->withCount([
                 'tasks' => fn ($query) => $query->withTrashed(),
                 'qualityTasks' => fn ($query) => $query->withTrashed(),
@@ -269,6 +286,11 @@ class AiPromptController extends Controller
         } catch (AiModelAccessException) {
             return [];
         }
+    }
+
+    private function promptCatalog(mixed $type): string
+    {
+        return $type === 'quality_check' ? 'quality_check' : 'content';
     }
 
     /** @return list<string> */
