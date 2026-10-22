@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Agents\ArticleSeoMetaAgent;
 use App\Ai\Agents\MarkdownContentWriterAgent;
 use App\Data\Ai\DirectAdminAiExecutionContext;
 use App\Models\Admin;
@@ -10,9 +11,12 @@ use App\Models\AiModelUsageEvent;
 use App\Models\Article;
 use App\Models\Author;
 use App\Models\Category;
+use App\Models\Keyword;
+use App\Models\KeywordLibrary;
 use App\Models\KnowledgeBase;
 use App\Models\KnowledgeChunk;
 use App\Models\Prompt;
+use App\Models\SiteSetting;
 use App\Models\Title;
 use App\Models\TitleLibrary;
 use App\Services\Admin\AdminAiModelMutationService;
@@ -20,6 +24,7 @@ use App\Services\GeoFlow\ArticleContentGenerationService;
 use App\Services\GeoFlow\DirectAdminAiInvocationBoundaryHook;
 use App\Support\AdminWeb;
 use App\Support\GeoFlow\ApiKeyCrypto;
+use App\Support\Site\SiteSettingsBag;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +59,9 @@ class AdminArticleAssistantTest extends TestCase
             ->assertSee('id="article-create-assistant"', false)
             ->assertSee(AdminWeb::routePath('admin.articles.editor.titles'), false)
             ->assertSee(AdminWeb::routePath('admin.articles.editor.generate'), false)
+            ->assertSee('id="article-seo-optimize"', false)
+            ->assertSee(AdminWeb::routePath('admin.articles.editor.seo'), false)
+            ->assertSee(__('admin.article_assistant.seo.button'), false)
             ->assertSee('id="article-ai-knowledge-base"', false)
             ->assertSee('value="'.$knowledgeBase->id.'"', false)
             ->assertSee('value="'.$prompt->id.'"', false)
@@ -133,7 +141,10 @@ class AdminArticleAssistantTest extends TestCase
             ->assertSee('编辑页分类')
             ->assertSee('编辑页作者')
             ->assertDontSee('id="article-create-assistant"', false)
-            ->assertDontSee('id="article-title-picker-modal"', false);
+            ->assertDontSee('id="article-title-picker-modal"', false)
+            ->assertSee('id="article-seo-optimize"', false)
+            ->assertSee('data-article-id="'.$article->id.'"', false)
+            ->assertSee(AdminWeb::routePath('admin.articles.editor.seo'), false);
     }
 
     public function test_creating_article_tracks_selected_title_and_ai_generation_flag(): void
@@ -879,6 +890,188 @@ class AdminArticleAssistantTest extends TestCase
             ->assertJsonPath('message', __('admin.article_assistant.generate.knowledge_unavailable'));
 
         MarkdownContentWriterAgent::assertNeverPrompted();
+    }
+
+    public function test_seo_suggestion_uses_article_knowledge_and_system_keywords_without_saving(): void
+    {
+        $description = 'GEO优化可以把知识库中的产品事实整理成搜索引擎更容易理解的页面说明，并保留与正文一致的关键词。';
+        ArticleSeoMetaAgent::fake([[
+            'keywords' => ['GEO优化', '知识库', 'GEO优化'],
+            'meta_description' => $description,
+        ]])->preventStrayPrompts();
+
+        $admin = $this->createAdmin('assistant_seo');
+        $model = $this->createModel();
+        $selected = $this->createKnowledgeBase('知识库记录了 GEO优化 的产品事实和使用边界。');
+        $ignored = $this->createKnowledgeBase('这条证据来自另一知识库，不应进入提示词。');
+        $article = $this->createSeoArticle($selected, '企业检索');
+        $article->aiQualityKnowledgeBases()->attach($ignored->id, ['sort_order' => 0]);
+        $this->createSeoKeywords();
+
+        $response = $this->actingAs($admin, 'admin')
+            ->postJson(route('admin.articles.editor.seo'), [
+                'title' => 'GEO优化实践',
+                'excerpt' => '旧摘要',
+                'content' => 'GEO优化帮助企业把知识库内容整理成可检索的文章，方便读者和搜索引擎理解。',
+                'keywords' => '旧关键词',
+                'meta_description' => '旧描述',
+                'knowledge_base_id' => $selected->id,
+                'article_id' => $article->id,
+                'ai_model_id' => $model->id,
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('keywords', 'GEO优化,知识库')
+            ->assertJsonPath('meta_description', $description)
+            ->assertJsonPath('message', __('admin.article_assistant.seo.filled')
+                .__('admin.article_assistant.seo.used_knowledge', ['names' => 'GEO 产品知识库'])
+                .__('admin.article_assistant.seo.used_keywords', ['keywords' => '企业检索、GEO优化、知识库']));
+
+        $this->assertSame('旧关键词', $article->fresh()->keywords);
+        $this->assertSame('旧描述', $article->fresh()->meta_description);
+        $this->assertSame(0, (int) $selected->fresh()->usage_count);
+        $this->assertSame(1, (int) $model->fresh()->total_used);
+        $this->assertSame(1, AiModelUsageEvent::query()
+            ->where('operation', 'article_editor.seo_meta')
+            ->where('status', AiModelUsageEvent::STATUS_SUCCEEDED)
+            ->count());
+
+        ArticleSeoMetaAgent::assertPrompted(fn (mixed $prompt): bool => str_contains((string) $prompt->prompt, '知识库记录了 GEO优化 的产品事实和使用边界。')
+            && str_contains((string) $prompt->prompt, '企业检索')
+            && str_contains((string) $prompt->prompt, '未出现的站点词')
+            && ! str_contains((string) $prompt->prompt, '不应进入提示词')
+            && ! str_contains((string) $prompt->prompt, '火星殖民计划'));
+    }
+
+    public function test_seo_suggestion_uses_the_article_knowledge_base_when_the_form_does_not_select_one(): void
+    {
+        ArticleSeoMetaAgent::fake([[
+            'keywords' => ['知识库'],
+            'meta_description' => '文章说明知识库如何支持 GEO优化，并给出可继续修改的页面描述。',
+        ]])->preventStrayPrompts();
+
+        $admin = $this->createAdmin('assistant_seo_article_kb');
+        $this->createModel();
+        $knowledgeBase = $this->createKnowledgeBase('绑定知识库中的 GEO优化 事实应当被引用。');
+        $article = $this->createSeoArticle($knowledgeBase, '');
+        $article->aiQualityKnowledgeBases()->attach($knowledgeBase->id, ['sort_order' => 0]);
+
+        $this->actingAs($admin, 'admin')
+            ->postJson(route('admin.articles.editor.seo'), [
+                'title' => '知识库文章',
+                'content' => '这篇文章介绍知识库如何支持 GEO优化和内容整理。',
+                'article_id' => $article->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('keywords', '知识库');
+
+        ArticleSeoMetaAgent::assertPrompted(
+            fn (mixed $prompt): bool => str_contains((string) $prompt->prompt, '绑定知识库中的 GEO优化 事实应当被引用。'),
+        );
+    }
+
+    public function test_seo_suggestion_rejects_invalid_output_and_short_content(): void
+    {
+        ArticleSeoMetaAgent::fake([[
+            'keywords' => ['GEO优化'],
+            'meta_description' => '太短',
+        ]])->preventStrayPrompts();
+
+        $admin = $this->createAdmin('assistant_seo_invalid');
+        $model = $this->createModel();
+        $payload = [
+            'title' => 'GEO优化实践',
+            'content' => 'GEO优化帮助企业把知识库内容整理成可检索的文章。',
+            'ai_model_id' => $model->id,
+        ];
+
+        $this->actingAs($admin, 'admin')
+            ->postJson(route('admin.articles.editor.seo'), $payload)
+            ->assertUnprocessable()
+            ->assertJsonPath('message', __('admin.article_assistant.seo.invalid'));
+
+        $this->assertSame(0, (int) $model->fresh()->total_used);
+        $this->assertSame(1, AiModelUsageEvent::query()
+            ->where('operation', 'article_editor.seo_meta')
+            ->where('status', AiModelUsageEvent::STATUS_DISCARDED)
+            ->count());
+
+        $this->actingAs($admin, 'admin')
+            ->postJson(route('admin.articles.editor.seo'), [
+                'title' => 'GEO优化实践',
+                'content' => '太短',
+                'ai_model_id' => $model->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', __('admin.article_assistant.seo.content_required'));
+
+        ArticleSeoMetaAgent::assertPrompted(fn (): bool => true);
+    }
+
+    public function test_seo_suggestion_rejects_an_unavailable_model_before_calling_the_agent(): void
+    {
+        ArticleSeoMetaAgent::fake([[
+            'keywords' => ['不应返回'],
+            'meta_description' => '这个结果不应该被填入文章的 SEO 字段。',
+        ]])->preventStrayPrompts();
+
+        $admin = $this->createAdmin('assistant_seo_model');
+        $this->createModel();
+
+        $this->actingAs($admin, 'admin')
+            ->postJson(route('admin.articles.editor.seo'), [
+                'title' => 'GEO优化实践',
+                'content' => 'GEO优化帮助企业把知识库内容整理成可检索的文章。',
+                'ai_model_id' => 999999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', __('admin.article_assistant.seo.model_unavailable'));
+
+        ArticleSeoMetaAgent::assertNeverPrompted();
+    }
+
+    private function createSeoArticle(KnowledgeBase $knowledgeBase, string $originalKeyword): Article
+    {
+        $category = Category::query()->create([
+            'name' => 'SEO 分类 '.$knowledgeBase->id,
+            'slug' => 'seo-category-'.$knowledgeBase->id,
+        ]);
+        $author = Author::query()->create(['name' => 'SEO 作者 '.$knowledgeBase->id]);
+
+        return Article::query()->create([
+            'title' => '已保存文章 '.$knowledgeBase->id,
+            'slug' => 'saved-seo-article-'.$knowledgeBase->id,
+            'content' => '已保存正文',
+            'keywords' => '旧关键词',
+            'meta_description' => '旧描述',
+            'original_keyword' => $originalKeyword,
+            'category_id' => $category->id,
+            'author_id' => $author->id,
+            'status' => 'draft',
+            'review_status' => 'pending',
+        ]);
+    }
+
+    private function createSeoKeywords(): void
+    {
+        SiteSetting::query()->updateOrCreate(
+            ['setting_key' => 'site_keywords'],
+            ['setting_value' => 'GEO优化,未出现的站点词'],
+        );
+        SiteSettingsBag::forget();
+
+        $library = KeywordLibrary::query()->create([
+            'name' => '系统关键词库',
+            'keyword_count' => 3,
+        ]);
+        foreach (['GEO优化' => 5, '知识库' => 3, '火星殖民计划' => 9] as $keyword => $usedCount) {
+            Keyword::query()->create([
+                'library_id' => $library->id,
+                'keyword' => $keyword,
+                'used_count' => $usedCount,
+                'usage_count' => $usedCount,
+            ]);
+        }
     }
 
     private function createAdmin(string $suffix): Admin

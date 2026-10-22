@@ -389,6 +389,7 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::post('editor/wechat-html', [ArticleEditorAssetController::class, 'exportWeChatHtml'])->name('editor.wechat-html');
             Route::get('editor/titles', [ArticleEditorAssistantController::class, 'titles'])->name('editor.titles');
             Route::post('editor/generate', [ArticleEditorAssistantController::class, 'generate'])->middleware('throttle:10,1')->name('editor.generate');
+            Route::post('editor/seo', [ArticleEditorAssistantController::class, 'optimizeSeo'])->middleware('throttle:10,1')->name('editor.seo');
             Route::get('create', [ArticleController::class, 'create'])->name('create');
             Route::post('create', [ArticleController::class, 'store'])->name('store');
             Route::post('{articleId}/restore', [ArticleController::class, 'restore'])->name('restore')->whereNumber('articleId');

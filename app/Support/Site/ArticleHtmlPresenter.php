@@ -46,6 +46,19 @@ final class ArticleHtmlPresenter
     }
 
     /**
+     * 搜索结果摘要：优先使用文章 Meta 描述，否则回退到摘要或正文。
+     */
+    public static function searchDescription(Article $article, int $limit = 160): string
+    {
+        $meta = self::toPlainLine(strip_tags((string) $article->meta_description));
+        if ($meta !== '') {
+            return mb_strlen($meta) > $limit ? mb_substr($meta, 0, $limit).'…' : $meta;
+        }
+
+        return self::cardSummary($article, $limit);
+    }
+
+    /**
      * 列表卡片摘要：优先 excerpt，否则从正文抽纯文本片段。
      */
     public static function cardSummary(Article $article, int $limit = 120): string

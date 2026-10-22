@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exceptions\AiModelAccessException;
 use App\Exceptions\AiModelRuntimeEligibilityException;
+use App\Exceptions\ArticleSeoMetaContractException;
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Models\KnowledgeBase;
 use App\Models\Prompt;
 use App\Models\Title;
 use App\Services\GeoFlow\ArticleCitationMarkerCleaner;
 use App\Services\GeoFlow\ArticleContentGenerationService;
 use App\Services\GeoFlow\ArticleContentPromptRenderer;
+use App\Services\GeoFlow\ArticleRiskScanner;
+use App\Services\GeoFlow\ArticleSeoMetaSuggestionService;
 use App\Services\GeoFlow\DirectAdminAiExecutionGuard;
 use App\Services\GeoFlow\DirectAdminAiModelInvocationGateway;
 use App\Services\GeoFlow\KnowledgeRetrievalService;
@@ -33,6 +37,7 @@ final class ArticleEditorAssistantController extends Controller
         private readonly ArticleCitationMarkerCleaner $citationMarkerCleaner,
         private readonly DirectAdminAiExecutionGuard $executionGuard,
         private readonly DirectAdminAiModelInvocationGateway $invocationGateway,
+        private readonly ArticleSeoMetaSuggestionService $seoMetaSuggestions,
     ) {}
 
     public function titles(Request $request): JsonResponse
@@ -231,6 +236,84 @@ final class ArticleEditorAssistantController extends Controller
         $response->headers->set('X-Accel-Buffering', 'no');
 
         return $response;
+    }
+
+    /**
+     * 根据当前文章、知识库和系统关键词生成 SEO 建议。
+     * 只返回可回填的字段，不写入文章。
+     */
+    public function optimizeSeo(Request $request): JsonResponse
+    {
+        $admin = $request->user('admin');
+        if (! $admin instanceof Admin) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:500'],
+            'excerpt' => ['nullable', 'string', 'max:'.ArticleRiskScanner::MAX_EXCERPT_CHARACTERS],
+            'content' => ['required', 'string', 'max:'.ArticleRiskScanner::MAX_CONTENT_CHARACTERS],
+            'keywords' => ['nullable', 'string', 'max:500'],
+            'meta_description' => ['nullable', 'string', 'max:500'],
+            'knowledge_base_id' => ['nullable', 'integer', 'min:1', Rule::exists('knowledge_bases', 'id')],
+            'article_id' => ['nullable', 'integer', 'min:1', Rule::exists('articles', 'id')],
+            'ai_model_id' => ['nullable', 'integer', 'min:1'],
+        ], [
+            'title.required' => __('admin.article_assistant.seo.title_required'),
+            'content.required' => __('admin.article_assistant.seo.content_required'),
+        ]);
+
+        $title = trim((string) $validated['title']);
+        $content = trim((string) $validated['content']);
+        if ($title === '' || mb_strlen($content) < 8) {
+            return response()->json([
+                'message' => $title === ''
+                    ? __('admin.article_assistant.seo.title_required')
+                    : __('admin.article_assistant.seo.content_required'),
+            ], 422);
+        }
+
+        try {
+            $suggestion = $this->seoMetaSuggestions->suggest($admin, [
+                'title' => $title,
+                'excerpt' => trim((string) ($validated['excerpt'] ?? '')),
+                'content' => $content,
+                'keywords' => trim((string) ($validated['keywords'] ?? '')),
+                'meta_description' => trim((string) ($validated['meta_description'] ?? '')),
+                'knowledge_base_id' => isset($validated['knowledge_base_id']) ? (int) $validated['knowledge_base_id'] : null,
+                'article_id' => isset($validated['article_id']) ? (int) $validated['article_id'] : null,
+                'ai_model_id' => isset($validated['ai_model_id']) ? (int) $validated['ai_model_id'] : null,
+            ]);
+        } catch (ArticleSeoMetaContractException) {
+            return response()->json(['message' => __('admin.article_assistant.seo.invalid')], 422);
+        } catch (AiModelAccessException|AiModelRuntimeEligibilityException) {
+            return response()->json(['message' => __('admin.article_assistant.seo.model_unavailable')], 422);
+        } catch (Throwable $exception) {
+            Log::warning('Article SEO suggestion stopped safely.', [
+                'exception_type' => $exception::class,
+                'admin_id' => (int) $admin->getKey(),
+            ]);
+
+            return response()->json(['message' => __('admin.article_assistant.seo.failed')], 422);
+        }
+
+        $notes = [__('admin.article_assistant.seo.filled')];
+        if ($suggestion['knowledge_bases'] !== []) {
+            $notes[] = __('admin.article_assistant.seo.used_knowledge', [
+                'names' => implode('、', $suggestion['knowledge_bases']),
+            ]);
+        }
+        if ($suggestion['system_keywords'] !== []) {
+            $notes[] = __('admin.article_assistant.seo.used_keywords', [
+                'keywords' => implode('、', array_slice($suggestion['system_keywords'], 0, 8)),
+            ]);
+        }
+
+        return response()->json([
+            'keywords' => $suggestion['keywords'],
+            'meta_description' => $suggestion['meta_description'],
+            'message' => implode('', $notes),
+        ]);
     }
 
     private function safeSseError(string $errorCode): string

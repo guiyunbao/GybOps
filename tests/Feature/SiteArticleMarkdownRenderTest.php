@@ -128,6 +128,37 @@ MD);
             ->assertSee('<meta property="og:site_name" content="GEOFlow Support">', false);
     }
 
+    public function test_published_article_page_prefers_meta_description_over_excerpt(): void
+    {
+        $category = Category::query()->create([
+            'name' => '科技资讯',
+            'slug' => 'tech-meta',
+        ]);
+        $author = Author::query()->create([
+            'name' => 'GEOFlow',
+        ]);
+        $article = Article::query()->create([
+            'title' => 'Meta Priority Title',
+            'slug' => 'meta-priority-title',
+            'excerpt' => 'Visible excerpt summary',
+            'meta_description' => 'Search snippet from the article meta description',
+            'content' => '正文',
+            'keywords' => 'alpha,beta',
+            'category_id' => $category->id,
+            'author_id' => $author->id,
+            'status' => 'published',
+            'review_status' => 'approved',
+            'is_ai_generated' => 0,
+            'published_at' => now(),
+        ]);
+
+        $this->get(route('site.article', $article->slug))
+            ->assertOk()
+            ->assertSee('<meta name="description" content="Search snippet from the article meta description">', false)
+            ->assertSee('<meta property="og:description" content="Search snippet from the article meta description">', false)
+            ->assertDontSee('<meta name="description" content="Visible excerpt summary">', false);
+    }
+
     public function test_theme_article_page_renders_array_based_sticky_ad(): void
     {
         SiteSetting::query()->updateOrCreate(

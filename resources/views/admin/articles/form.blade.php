@@ -1513,19 +1513,38 @@
                         @endif
                     </section>
 
-                    <div class="bg-white shadow rounded-lg">
-                        <div class="px-6 py-4 border-b border-gray-200">
-                            <h3 class="text-lg font-medium text-gray-900">{{ __($i18nRoot.'.section.seo_title') }}</h3>
+                    <div
+                        id="article-seo-panel"
+                        class="bg-white shadow rounded-lg"
+                        data-seo-url="{{ \App\Support\AdminWeb::routePath('admin.articles.editor.seo') }}"
+                        data-article-id="{{ $isEdit ? (int) $articleId : '' }}"
+                    >
+                        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-6 py-4">
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-medium text-gray-900">{{ __($i18nRoot.'.section.seo_title') }}</h3>
+                                <p class="mt-1 text-sm text-gray-500">{{ __('admin.article_assistant.seo.desc') }}</p>
+                            </div>
+                            <button
+                                type="button"
+                                id="article-seo-optimize"
+                                class="inline-flex shrink-0 items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <i data-lucide="wand-sparkles" class="mr-2 h-4 w-4"></i>
+                                {{ __('admin.article_assistant.seo.button') }}
+                            </button>
                         </div>
-                        <div class="px-6 py-4 space-y-6">
+                        <div class="space-y-6 px-6 py-4">
                             <div>
                                 <label for="keywords" class="block text-sm font-medium text-gray-700">{{ __($i18nRoot.'.field.keywords') }}</label>
                                 <input id="keywords" type="text" name="keywords" value="{{ $formData['keywords'] }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="{{ __($i18nRoot.'.placeholder.keywords') }}">
+                                <p class="mt-1 text-xs text-gray-500">{{ __('admin.article_assistant.seo.keywords_help') }}</p>
                             </div>
                             <div>
                                 <label for="meta_description" class="block text-sm font-medium text-gray-700">{{ __($i18nRoot.'.field.meta_description') }}</label>
                                 <textarea id="meta_description" name="meta_description" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="{{ __($i18nRoot.'.placeholder.meta_description') }}">{{ $formData['meta_description'] }}</textarea>
+                                <p class="mt-1 text-xs text-gray-500">{{ __('admin.article_assistant.seo.meta_help') }}</p>
                             </div>
+                            <p id="article-seo-optimize-status" class="text-xs text-gray-500" aria-live="polite"></p>
                         </div>
                     </div>
                 </div>
@@ -2773,6 +2792,128 @@
                 });
                 const croppedFile = canvas ? await fileFromCanvas(canvas) : null;
                 uploadImageFile(croppedFile || currentFile);
+            });
+
+            const seoPanel = document.getElementById('article-seo-panel');
+            const seoButton = document.getElementById('article-seo-optimize');
+            const seoStatus = document.getElementById('article-seo-optimize-status');
+            const seoMessages = {
+                preparing: @json(__('admin.article_assistant.seo.preparing')),
+                replaceConfirm: @json(__('admin.article_assistant.seo.replace_confirm')),
+                failed: @json(__('admin.article_assistant.seo.failed')),
+                networkFailed: @json(__('admin.article_assistant.seo.network_failed')),
+                titleRequired: @json(__('admin.article_assistant.seo.title_required')),
+                contentRequired: @json(__('admin.article_assistant.seo.content_required')),
+            };
+
+            /**
+             * 读取当前正文。编辑器就绪后使用编辑器内容，否则使用隐藏文本域。
+             */
+            function currentArticleMarkdown() {
+                const bridge = window.geoArticleEditorAssistantBridge;
+                if (bridge && typeof bridge.getValue === 'function') {
+                    return String(bridge.getValue() || '');
+                }
+
+                return textarea ? String(textarea.value || '') : '';
+            }
+
+            /**
+             * 更新 SEO 区域的操作反馈。
+             */
+            function setSeoStatus(message, tone) {
+                if (!seoStatus) {
+                    return;
+                }
+
+                seoStatus.textContent = message || '';
+                seoStatus.classList.remove('text-gray-500', 'text-emerald-700', 'text-red-700');
+                seoStatus.classList.add(tone === 'success' ? 'text-emerald-700' : (tone === 'error' ? 'text-red-700' : 'text-gray-500'));
+            }
+
+            /**
+             * 根据文章、知识库和系统关键词生成 SEO 建议，并回填到仍可手工修改的字段。
+             */
+            async function optimizeArticleSeo() {
+                if (!seoPanel || !seoButton) {
+                    return;
+                }
+
+                const title = document.getElementById('title');
+                const excerpt = document.getElementById('excerpt');
+                const keywords = document.getElementById('keywords');
+                const meta = document.getElementById('meta_description');
+                const titleValue = title ? title.value.trim() : '';
+                const contentValue = currentArticleMarkdown().trim();
+                if (titleValue === '') {
+                    setSeoStatus(seoMessages.titleRequired, 'error');
+                    title?.focus();
+                    return;
+                }
+                if (contentValue.length < 8) {
+                    setSeoStatus(seoMessages.contentRequired, 'error');
+                    return;
+                }
+
+                const hasDraft = (keywords && keywords.value.trim() !== '') || (meta && meta.value.trim() !== '');
+                if (hasDraft && !window.confirm(seoMessages.replaceConfirm)) {
+                    return;
+                }
+
+                const knowledge = document.getElementById('article-ai-knowledge-base');
+                const model = document.getElementById('article-ai-model');
+                const articleId = Number(seoPanel.dataset.articleId || '');
+                const knowledgeId = Number(knowledge && knowledge.value ? knowledge.value : '');
+                const modelId = Number(model && model.value ? model.value : '');
+                seoButton.disabled = true;
+                seoButton.setAttribute('aria-busy', 'true');
+                setSeoStatus(seoMessages.preparing, 'pending');
+
+                try {
+                    const response = await fetch(seoPanel.dataset.seoUrl || '', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({
+                            title: titleValue,
+                            excerpt: excerpt ? excerpt.value : '',
+                            content: contentValue,
+                            keywords: keywords ? keywords.value : '',
+                            meta_description: meta ? meta.value : '',
+                            knowledge_base_id: knowledgeId > 0 ? knowledgeId : null,
+                            article_id: articleId > 0 ? articleId : null,
+                            ai_model_id: modelId > 0 ? modelId : null,
+                        }),
+                    });
+                    const payload = await response.json().catch(function () {
+                        return {};
+                    });
+                    if (!response.ok) {
+                        setSeoStatus(payload.message || seoMessages.failed, 'error');
+                        return;
+                    }
+                    if (keywords) {
+                        keywords.value = payload.keywords || '';
+                    }
+                    if (meta) {
+                        meta.value = payload.meta_description || '';
+                    }
+                    setSeoStatus(payload.message || seoMessages.failed, 'success');
+                    keywords?.focus();
+                } catch (error) {
+                    void error;
+                    setSeoStatus(seoMessages.networkFailed, 'error');
+                } finally {
+                    seoButton.disabled = false;
+                    seoButton.removeAttribute('aria-busy');
+                }
+            }
+
+            seoButton?.addEventListener('click', function () {
+                optimizeArticleSeo();
             });
         })();
     </script>

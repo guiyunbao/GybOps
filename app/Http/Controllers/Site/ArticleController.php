@@ -107,7 +107,7 @@ class ArticleController extends Controller
         }
 
         $pageTitle = (string) $article->title;
-        $pageDescription = $excerptPlain !== '' ? $excerptPlain : ArticleHtmlPresenter::cardSummary($article, 160);
+        $pageDescription = ArticleHtmlPresenter::searchDescription($article, 160);
         $pageKeywords = implode(',', $tags);
 
         $stickyAd = ArticleStickyAdPicker::firstEnabled();
