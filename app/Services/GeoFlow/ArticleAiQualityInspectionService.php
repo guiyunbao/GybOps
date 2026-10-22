@@ -29,7 +29,9 @@ use App\Support\GeoFlow\AiQualityRetrievalBasis;
 use App\Support\GeoFlow\AiQualityRetrievalMode;
 use App\Support\GeoFlow\ArticleWorkflow;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -40,6 +42,11 @@ use Throwable;
 class ArticleAiQualityInspectionService
 {
     private const WORKFLOW_APPLY_MAX_ATTEMPTS = 3;
+
+    /**
+     * 留给评分、落库和进程退出的余量。下一次完整模型调用必须连同这段余量放进当前任务超时。
+     */
+    private const NEXT_SEGMENT_JOB_MARGIN_SECONDS = 20;
 
     public function __construct(
         private readonly ArticleAiQualityPolicyResolver $policyResolver,
@@ -734,6 +741,25 @@ class ArticleAiQualityInspectionService
         ?string $expectedScope = null,
     ): ArticleAiQualityCheck {
         $checkId = $check instanceof ArticleAiQualityCheck ? (int) $check->id : $check;
+        $lock = $this->tryAcquireExecutionLock($checkId);
+        if ($lock === false) {
+            return ArticleAiQualityCheck::query()->findOrFail($checkId);
+        }
+
+        try {
+            return $this->runInspection($check, $allowRunningRecovery, $expectedScope);
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    private function runInspection(
+        ArticleAiQualityCheck|int $check,
+        bool $allowRunningRecovery = false,
+        ?string $expectedScope = null,
+    ): ArticleAiQualityCheck {
+        $jobStartedAt = hrtime(true);
+        $checkId = $check instanceof ArticleAiQualityCheck ? (int) $check->id : $check;
         $check = ArticleAiQualityCheck::query()->with(['article', 'segments'])->findOrFail($checkId);
         if ($expectedScope !== null && (string) $check->inspection_scope !== $expectedScope) {
             return $check;
@@ -883,6 +909,7 @@ class ArticleAiQualityInspectionService
             $timings['evidence_retrieval'] = (int) ($timings['evidence_retrieval'] ?? 0);
             $evidenceCacheMeta = ['status' => 'persisted_snapshot', 'key' => null];
         } else {
+            $this->touchExecutionHeartbeat($checkId);
             $stageStartedAt = hrtime(true);
             $facts = $this->factExtractor->extract($inspectionSnapshot, 1000);
             $timings['claim_extraction'] = $this->elapsedMilliseconds($stageStartedAt);
@@ -1116,6 +1143,7 @@ class ArticleAiQualityInspectionService
                         $candidateBudgetSeconds,
                     ));
                     $modelStartedAt = hrtime(true);
+                    $this->touchExecutionHeartbeat($checkId);
                     try {
                         $candidateReview = $this->reviewer instanceof ProviderAttemptAwareArticleAiQualityReviewer
                             && $providerUsageSession instanceof ArticleAiQualityProviderUsageSession
@@ -1280,7 +1308,13 @@ class ArticleAiQualityInspectionService
                 ->where('article_ai_quality_check_id', $checkId)
                 ->whereIn('status', ['queued', 'running', 'failed'])
                 ->exists()) {
-                return $this->queueNextSegment($checkId);
+                $lastSegmentIndex = (int) ($segments[array_key_last($segments)]['index'] ?? $segmentData['index']);
+                if ((int) $segmentData['index'] >= $lastSegmentIndex
+                    || ! $this->sameProcessCanReviewAnotherSegment($jobStartedAt)) {
+                    return $this->queueNextSegment($checkId);
+                }
+
+                continue;
             }
         }
 
@@ -1818,6 +1852,7 @@ class ArticleAiQualityInspectionService
                 $executionAdmin,
             );
         }
+        $this->touchExecutionHeartbeat($checkId);
         $providerUsageSession = $this->qualityProviderUsageSession(
             check: $check,
             model: $model,
@@ -2166,6 +2201,20 @@ class ArticleAiQualityInspectionService
     public function recoverStuckCheck(ArticleAiQualityCheck|int $check): bool
     {
         $checkId = $check instanceof ArticleAiQualityCheck ? (int) $check->id : $check;
+        $lock = $this->tryAcquireExecutionLock($checkId);
+        if ($lock === false) {
+            return false;
+        }
+
+        try {
+            return $this->recoverStuckCheckAfterLock($checkId);
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    private function recoverStuckCheckAfterLock(int $checkId): bool
+    {
         $candidate = ArticleAiQualityCheck::query()->find($checkId);
         if ($candidate
             && in_array((string) $candidate->status, ['queued', 'running'], true)
@@ -2216,6 +2265,56 @@ class ArticleAiQualityInspectionService
 
             return true;
         });
+    }
+
+    /**
+     * 同一条质检在模型调用期间持有这把锁。对账看到锁就跳过，避免把还在执行的调用判成中断后再打一次模型。
+     *
+     * @return Lock|false|null 拿到锁、锁被占用，或缓存不可用时继续执行
+     */
+    private function tryAcquireExecutionLock(int $checkId): Lock|false|null
+    {
+        try {
+            $lock = Cache::lock($this->executionLockName($checkId), $this->executionLockSeconds());
+            if (! $lock->get()) {
+                return false;
+            }
+
+            return $lock;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function executionLockName(int $checkId): string
+    {
+        return 'geoflow:ai-quality:execution:'.$checkId;
+    }
+
+    private function executionLockSeconds(): int
+    {
+        return max(60, (int) config('geoflow.ai_quality_job_timeout_seconds', 245) + 30);
+    }
+
+    private function touchExecutionHeartbeat(int $checkId): void
+    {
+        ArticleAiQualityCheck::query()
+            ->whereKey($checkId)
+            ->whereIn('status', ['queued', 'running'])
+            ->update(['updated_at' => now()]);
+    }
+
+    /**
+     * 当前进程还放得下一次完整模型超时时，继续审下一段，不再把同一篇文章重新排队。
+     */
+    private function sameProcessCanReviewAnotherSegment(int $jobStartedAt): bool
+    {
+        $elapsedSeconds = (hrtime(true) - $jobStartedAt) / 1_000_000_000;
+        $requestBudget = (int) config('geoflow.ai_quality_request_timeout_seconds', 160);
+        $reserve = (int) config('geoflow.ai_quality_persistence_reserve_seconds', 10);
+        $jobTimeout = (int) config('geoflow.ai_quality_job_timeout_seconds', 245);
+
+        return ($elapsedSeconds + $requestBudget + $reserve + self::NEXT_SEGMENT_JOB_MARGIN_SECONDS) < $jobTimeout;
     }
 
     /** @return array<string, mixed> */

@@ -1054,6 +1054,7 @@ class ArticleAiQualityInspectionServiceTest extends TestCase
     public function test_long_articles_continue_one_segment_per_job_until_complete(): void
     {
         Queue::fake();
+        config()->set('geoflow.ai_quality_job_timeout_seconds', 180);
         $this->bindPassingReviewer();
         $article = $this->createQualityFixture('segmented-continuation', needReview: false);
         Article::withoutEvents(function () use ($article): void {
@@ -1077,8 +1078,75 @@ class ArticleAiQualityInspectionServiceTest extends TestCase
 
         $this->assertSame('completed', $result->status);
         $this->assertSame($result->segment_count, $result->segments()->where('status', 'completed')->count());
+        config()->set('geoflow.ai_quality_job_timeout_seconds', 245);
         $this->assertSame(245, (new ProcessArticleAiQualityJob((int) $result->id))->timeout);
         $this->assertTrue((new ProcessArticleAiQualityJob((int) $result->id))->failOnTimeout);
+    }
+
+    public function test_long_articles_finish_in_one_job_when_another_full_review_still_fits(): void
+    {
+        Queue::fake();
+        $this->bindPassingReviewer();
+        $article = $this->createQualityFixture('segmented-inline', needReview: false);
+        Article::withoutEvents(function () use ($article): void {
+            $article->forceFill(['content' => str_repeat('分段质检内容。', 2200)])->save();
+        });
+
+        $service = app(ArticleAiQualityInspectionService::class);
+        $check = $service->createOrReuse($article->fresh(), dispatch: false);
+
+        $completed = $service->process($check);
+
+        $this->assertGreaterThan(1, $completed->segment_count);
+        $this->assertSame('completed', $completed->status);
+        $this->assertSame($completed->segment_count, $completed->segments()->where('status', 'completed')->count());
+        Queue::assertNotPushed(ProcessArticleAiQualityJob::class);
+    }
+
+    public function test_reconciliation_leaves_an_in_flight_provider_call_running(): void
+    {
+        Queue::fake();
+        config()->set('geoflow.ai_quality_request_timeout_seconds', 160);
+        $reviewer = new class implements ArticleAiQualityReviewer
+        {
+            public int $checkId = 0;
+
+            public int $calls = 0;
+
+            public function review(AiModel $model, string $instructions): array
+            {
+                $this->calls++;
+                ArticleAiQualityCheck::query()->whereKey($this->checkId)->update([
+                    'updated_at' => now()->subSeconds(166),
+                ]);
+                app(ArticleAiQualityReconciliationService::class)->convergeExpired();
+
+                return [
+                    'result' => [
+                        'summary' => '质检通过。',
+                        'promotion_context' => 'informational',
+                        'knowledge_coverage' => 'sufficient',
+                        'issues' => [],
+                        'uncertainties' => [],
+                    ],
+                    'usage' => [],
+                    'model' => ['id' => (int) $model->id, 'model_id' => (string) $model->model_id],
+                    'mode' => 'structured',
+                ];
+            }
+        };
+        $this->app->instance(ArticleAiQualityReviewer::class, $reviewer);
+        $article = $this->createQualityFixture('in-flight-provider', needReview: false);
+        $service = app(ArticleAiQualityInspectionService::class);
+        $check = $service->createOrReuse($article, dispatch: false);
+        $reviewer->checkId = (int) $check->id;
+
+        $completed = $service->process($check);
+
+        $this->assertSame(1, $reviewer->calls);
+        $this->assertSame('completed', $completed->status);
+        $this->assertSame('passed', $completed->decision);
+        Queue::assertNotPushed(ProcessArticleAiQualityJob::class);
     }
 
     public function test_resumed_atomic_check_recovers_atomic_results_from_persisted_execution_metadata(): void
